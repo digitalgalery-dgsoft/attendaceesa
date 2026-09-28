@@ -16,21 +16,28 @@ use Illuminate\Support\Str;
 class HelpdeskApiController extends Controller
 {
     /**
-     * Generate secure helpdesk session token for an employee ID.
+     * Generate secure helpdesk session token for an employee ID using unified cluster secret.
      */
     protected function generateSessionToken(int $employeeId): string
     {
-        $secret = config('app.key', 'esa_helpdesk_secret_key_2026');
+        $secret = config('services.esa.cluster_key') ?: env('ESA_CLUSTER_KEY') ?: 'esa_helpdesk_cluster_token_secret_2026';
         return hash_hmac('sha256', "helpdesk_employee_{$employeeId}", $secret);
     }
 
     /**
-     * Verify the provided session token.
+     * Verify the provided session token across cluster or local keys.
      */
     protected function verifySessionToken(int $employeeId, string $token): bool
     {
-        $expected = $this->generateSessionToken($employeeId);
-        return hash_equals($expected, $token);
+        $expectedCluster = $this->generateSessionToken($employeeId);
+        if (hash_equals($expectedCluster, $token)) {
+            return true;
+        }
+
+        // Backward compatibility fallback: verify against local app.key
+        $localSecret = config('app.key', 'esa_helpdesk_secret_key_2026');
+        $expectedLocal = hash_hmac('sha256', "helpdesk_employee_{$employeeId}", $localSecret);
+        return hash_equals($expectedLocal, $token);
     }
 
     /**
@@ -61,11 +68,15 @@ class HelpdeskApiController extends Controller
                 foreach ($serverInfo['urls'] as $targetUrl) {
                     if (empty($targetUrl)) continue;
                     try {
-                        $resp = \Illuminate\Support\Facades\Http::timeout(3)->withoutVerifying()->post(rtrim($targetUrl, '/') . '/api/helpdesk/check-nik', [
+                        $resp = \Illuminate\Support\Facades\Http::timeout(4)->withoutVerifying()->post(rtrim($targetUrl, '/') . '/api/helpdesk/check-nik', [
                             'nik' => $nik
                         ]);
                         if ($resp->successful()) {
-                            return response()->json($resp->json(), $resp->status());
+                            $responseData = $resp->json();
+                            if (isset($responseData['data'])) {
+                                $responseData['data']['server_url'] = rtrim($targetUrl, '/');
+                            }
+                            return response()->json($responseData, $resp->status());
                         }
                     } catch (\Throwable $e) {}
                 }
@@ -123,6 +134,7 @@ class HelpdeskApiController extends Controller
                 'has_device_bound' => !empty($employee->device_id),
                 'device_name' => $employee->device_name ?: (!empty($employee->device_id) ? 'Perangkat Terikat' : 'Belum Ada Perangkat'),
                 'session_token' => $sessionToken,
+                'server_url' => rtrim(config('app.url') ?: url('/'), '/'),
             ],
         ]);
     }
@@ -150,6 +162,19 @@ class HelpdeskApiController extends Controller
 
         $employee = Employee::with(['company', 'principal', 'branch', 'position'])->find($employeeId);
         if (!$employee) {
+            // Relay to peer servers in cluster if employee not in local database
+            $peers = \App\Services\SmartGatewayRelayService::getPeerServers();
+            foreach ($peers as $serverInfo) {
+                foreach ($serverInfo['urls'] as $targetUrl) {
+                    if (empty($targetUrl)) continue;
+                    try {
+                        $resp = \Illuminate\Support\Facades\Http::timeout(5)->withoutVerifying()->post(rtrim($targetUrl, '/') . '/api/helpdesk/initiate-chat', $request->all());
+                        if ($resp->successful()) {
+                            return response()->json($resp->json(), $resp->status());
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
             return response()->json(['status' => 'error', 'message' => 'Karyawan tidak ditemukan.'], 404);
         }
 
@@ -231,6 +256,22 @@ class HelpdeskApiController extends Controller
         }
 
         $employee = Employee::find($employeeId);
+        if (!$employee) {
+            // Relay to peer servers in cluster
+            $peers = \App\Services\SmartGatewayRelayService::getPeerServers();
+            foreach ($peers as $serverInfo) {
+                foreach ($serverInfo['urls'] as $targetUrl) {
+                    if (empty($targetUrl)) continue;
+                    try {
+                        $resp = \Illuminate\Support\Facades\Http::timeout(5)->withoutVerifying()->get(rtrim($targetUrl, '/') . '/api/helpdesk/messages', $request->all());
+                        if ($resp->successful()) {
+                            return response()->json($resp->json(), $resp->status());
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
+        }
+
         $conversation = Conversation::firstOrCreate(['employee_id' => $employeeId]);
         $messages = $conversation->messages()->orderBy('created_at', 'asc')->get();
 
@@ -263,6 +304,19 @@ class HelpdeskApiController extends Controller
 
         $employee = Employee::find($employeeId);
         if (!$employee) {
+            // Relay to peer servers in cluster
+            $peers = \App\Services\SmartGatewayRelayService::getPeerServers();
+            foreach ($peers as $serverInfo) {
+                foreach ($serverInfo['urls'] as $targetUrl) {
+                    if (empty($targetUrl)) continue;
+                    try {
+                        $resp = \Illuminate\Support\Facades\Http::timeout(5)->withoutVerifying()->post(rtrim($targetUrl, '/') . '/api/helpdesk/send-message', $request->all());
+                        if ($resp->successful()) {
+                            return response()->json($resp->json(), $resp->status());
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
             return response()->json(['status' => 'error', 'message' => 'Karyawan tidak ditemukan.'], 404);
         }
 
@@ -309,6 +363,22 @@ class HelpdeskApiController extends Controller
 
         if (!$this->verifySessionToken($employeeId, $request->session_token)) {
             return response()->json(['status' => 'error', 'message' => 'Sesi tidak valid.'], 403);
+        }
+
+        $employee = Employee::find($employeeId);
+        if (!$employee) {
+            $peers = \App\Services\SmartGatewayRelayService::getPeerServers();
+            foreach ($peers as $serverInfo) {
+                foreach ($serverInfo['urls'] as $targetUrl) {
+                    if (empty($targetUrl)) continue;
+                    try {
+                        $resp = \Illuminate\Support\Facades\Http::timeout(4)->withoutVerifying()->post(rtrim($targetUrl, '/') . '/api/helpdesk/mark-read', $request->all());
+                        if ($resp->successful()) {
+                            return response()->json($resp->json(), $resp->status());
+                        }
+                    } catch (\Throwable $e) {}
+                }
+            }
         }
 
         $conversation = Conversation::where('employee_id', $employeeId)->first();

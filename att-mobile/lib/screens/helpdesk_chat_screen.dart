@@ -36,12 +36,23 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
   final ScrollController _scrollController = ScrollController();
   Timer? _pollTimer;
   bool _hasDeviceBound = false;
+  String? _targetServerUrl;
 
   String get _baseUrl {
     if (Constants.baseUrl.isEmpty || !Constants.isProductionUrl(Constants.baseUrl) || Constants.baseUrl.contains('appsend.my.id')) {
       return Constants.defaultProductionUrl;
     }
     return Constants.baseUrl;
+  }
+
+  String get _effectiveBaseUrl {
+    if (_targetServerUrl != null && _targetServerUrl!.trim().isNotEmpty) {
+      String clean = _targetServerUrl!.trim();
+      if (clean.endsWith('/')) clean = clean.substring(0, clean.length - 1);
+      if (!clean.endsWith('/api')) clean = '$clean/api';
+      return clean;
+    }
+    return _baseUrl;
   }
 
   @override
@@ -131,6 +142,9 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
           _employeeId = _employeeData!['employee_id'];
           _sessionToken = _employeeData!['session_token'];
           _hasDeviceBound = _employeeData!['has_device_bound'] == true;
+          if (_employeeData!['server_url'] != null && _employeeData!['server_url'].toString().isNotEmpty) {
+            _targetServerUrl = _employeeData!['server_url'].toString();
+          }
         });
         _showToast('Data karyawan ditemukan: ${_employeeData!['name']}', ToastificationType.success);
       } else {
@@ -154,7 +168,7 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
     setState(() => _isStartingChat = true);
 
     try {
-      final uri = Uri.parse('$_baseUrl/helpdesk/initiate-chat');
+      final uri = Uri.parse('$_effectiveBaseUrl/helpdesk/initiate-chat');
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},
@@ -195,7 +209,7 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
     if (_employeeId == null || _sessionToken == null || !_isInChatMode) return;
 
     try {
-      final uri = Uri.parse('$_baseUrl/helpdesk/messages?employee_id=$_employeeId&session_token=$_sessionToken');
+      final uri = Uri.parse('$_effectiveBaseUrl/helpdesk/messages?employee_id=$_employeeId&session_token=$_sessionToken');
       final res = await http.get(uri, headers: {'Accept': 'application/json'});
 
       if (res.statusCode == 200) {
@@ -229,7 +243,7 @@ class _HelpdeskChatScreenState extends State<HelpdeskChatScreen> {
     setState(() => _isSendingMessage = true);
 
     try {
-      final uri = Uri.parse('$_baseUrl/helpdesk/send-message');
+      final uri = Uri.parse('$_effectiveBaseUrl/helpdesk/send-message');
       final res = await http.post(
         uri,
         headers: {'Content-Type': 'application/json', 'Accept': 'application/json'},

@@ -46,12 +46,13 @@ class GoogleMapsService
 
         // 2. If it's a URL
         $targetUrl = $input;
+        $htmlBody = null;
 
         // If short link or needs redirect resolution
-        if (str_contains($input, 'maps.app.goo.gl') || str_contains($input, 'goo.gl/maps') || str_contains($input, 'page.link')) {
+        if (str_contains($input, 'maps.app.goo.gl') || str_contains($input, 'goo.gl') || str_contains($input, 'page.link') || str_contains($input, 'google.com/maps')) {
             try {
-                // Follow redirects to get final URL
-                $response = Http::timeout(8)
+                // Follow redirects to get final URL and HTML body
+                $response = Http::timeout(10)
                     ->withHeaders([
                         'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
                     ])
@@ -61,22 +62,9 @@ class GoogleMapsService
                 if (!empty($effectiveUri)) {
                     $targetUrl = $effectiveUri;
                 }
-
-                // Check HTML body for coordinates if meta tags or place data exist
-                $body = $response->body();
-                if (preg_match('/itemprop="latitude" content="(-?\d+\.\d+)"/', $body, $bodyLat) &&
-                    preg_match('/itemprop="longitude" content="(-?\d+\.\d+)"/', $body, $bodyLng)) {
-                    return [
-                        'latitude' => (float) $bodyLat[1],
-                        'longitude' => (float) $bodyLng[1],
-                        'raw_url' => $input,
-                        'resolved_url' => $targetUrl,
-                        'success' => true,
-                        'message' => 'Koordinat berhasil diekstrak dari metadata Google Maps.'
-                    ];
-                }
+                $htmlBody = $response->body();
             } catch (\Throwable $e) {
-                Log::warning('Failed to resolve Google Maps short URL: ' . $e->getMessage());
+                Log::warning('Failed to resolve Google Maps URL: ' . $e->getMessage());
             }
         }
 
@@ -113,7 +101,7 @@ class GoogleMapsService
             }
         }
 
-        // Pattern C: !3d(lat)!4d(lng) in Google Maps place URLs
+        // Pattern C1: !3d(lat)!4d(lng) in Google Maps place URLs
         if (preg_match('/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/', $targetUrl, $matches)) {
             $lat = (float) $matches[1];
             $lng = (float) $matches[2];
@@ -129,7 +117,91 @@ class GoogleMapsService
             }
         }
 
-        // Pattern D: Any comma separated coordinates embedded anywhere in URL or string
+        // Pattern C2: !2d(lng)!3d(lat) or %212d(lng)%213d(lat) in Google Maps URL (lng then lat)
+        if (preg_match('/(?:!2d|%212d)(-?\d+\.\d+)(?:!3d|%213d)(-?\d+\.\d+)/', $targetUrl, $matches)) {
+            $lng = (float) $matches[1];
+            $lat = (float) $matches[2];
+            if (self::isValidCoordinate($lat, $lng)) {
+                return [
+                    'latitude' => $lat,
+                    'longitude' => $lng,
+                    'raw_url' => $input,
+                    'resolved_url' => $targetUrl,
+                    'success' => true,
+                    'message' => 'Koordinat berhasil diekstrak dari parameter peta Google Maps (!2d,!3d).'
+                ];
+            }
+        }
+
+        // 4. If URL didn't have coordinates, inspect HTML body metadata & scripts
+        if ($htmlBody) {
+            // Pattern D1: staticmap image center/markers/ll in meta tag (og:image / itemprop="image")
+            if (preg_match('/staticmap\?[^"\'<>]*?(?:center|markers|ll)(?:%3D|=|\\\\u003d)(-?\d+\.\d+)(?:%2C|,)(-?\d+\.\d+)/i', $htmlBody, $bodyMatch)) {
+                $lat = (float) $bodyMatch[1];
+                $lng = (float) $bodyMatch[2];
+                if (self::isValidCoordinate($lat, $lng)) {
+                    return [
+                        'latitude' => $lat,
+                        'longitude' => $lng,
+                        'raw_url' => $input,
+                        'resolved_url' => $targetUrl,
+                        'success' => true,
+                        'message' => 'Koordinat berhasil diekstrak dari peta pratinjau Google Maps.'
+                    ];
+                }
+            }
+
+            // Pattern D2: Protobuf coordinates in HTML body: !2d(lng)!3d(lat) or %212d(lng)%213d(lat)
+            if (preg_match('/(?:!2d|%212d)(-?\d+\.\d+)(?:!3d|%213d)(-?\d+\.\d+)/', $htmlBody, $bodyMatch)) {
+                $lng = (float) $bodyMatch[1];
+                $lat = (float) $bodyMatch[2];
+                if (self::isValidCoordinate($lat, $lng)) {
+                    return [
+                        'latitude' => $lat,
+                        'longitude' => $lng,
+                        'raw_url' => $input,
+                        'resolved_url' => $targetUrl,
+                        'success' => true,
+                        'message' => 'Koordinat berhasil diekstrak dari data lokasi Google Maps.'
+                    ];
+                }
+            }
+
+            // Pattern D3: APP_INITIALIZATION_STATE = [[[zoom, lng, lat]
+            if (preg_match('/APP_INITIALIZATION_STATE\s*=\s*\[\[\[[\d.]+,\s*(-?\d{1,3}\.\d{4,})\s*,\s*(-?\d{1,2}\.\d{4,})/', $htmlBody, $bodyMatch)) {
+                $lng = (float) $bodyMatch[1];
+                $lat = (float) $bodyMatch[2];
+                if (self::isValidCoordinate($lat, $lng)) {
+                    return [
+                        'latitude' => $lat,
+                        'longitude' => $lng,
+                        'raw_url' => $input,
+                        'resolved_url' => $targetUrl,
+                        'success' => true,
+                        'message' => 'Koordinat berhasil diekstrak dari inisialisasi Google Maps.'
+                    ];
+                }
+            }
+
+            // Pattern D4: Legacy itemprop="latitude" and itemprop="longitude"
+            if (preg_match('/itemprop="latitude" content="(-?\d+\.\d+)"/', $htmlBody, $bodyLat) &&
+                preg_match('/itemprop="longitude" content="(-?\d+\.\d+)"/', $htmlBody, $bodyLng)) {
+                $lat = (float) $bodyLat[1];
+                $lng = (float) $bodyLng[1];
+                if (self::isValidCoordinate($lat, $lng)) {
+                    return [
+                        'latitude' => $lat,
+                        'longitude' => $lng,
+                        'raw_url' => $input,
+                        'resolved_url' => $targetUrl,
+                        'success' => true,
+                        'message' => 'Koordinat berhasil diekstrak dari metadata Google Maps.'
+                    ];
+                }
+            }
+        }
+
+        // Pattern E: Any comma separated coordinates embedded anywhere in URL or string
         if (preg_match('/(-?\d{1,2}\.\d{4,}),\s*(-?\d{1,3}\.\d{4,})/', $targetUrl, $matches)) {
             $lat = (float) $matches[1];
             $lng = (float) $matches[2];
@@ -151,7 +223,7 @@ class GoogleMapsService
             'raw_url' => $input,
             'resolved_url' => $targetUrl,
             'success' => false,
-            'message' => 'Titik koordinat tidak dapat ditemukan secara otomatis dari link tersebut. Pastikan link Google Maps benar atau masukkan titik koordinat (lat, lng) secara manual.'
+            'message' => 'Titik koordinat tidak dapat ditemukan secara otomatis dari link tersebut. Pastikan link Google Maps benar atau gunakan tombol "Gunakan Titik Koordinat Lokasi Saya Sekarang".'
         ];
     }
 

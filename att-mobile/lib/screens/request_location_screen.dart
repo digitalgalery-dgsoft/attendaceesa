@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:toastification/toastification.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:att_mobile/providers/auth_provider.dart';
 import 'package:att_mobile/utils/constants.dart';
 import '../widgets/custom_loading_indicator.dart';
@@ -33,6 +34,7 @@ class _RequestLocationScreenState extends State<RequestLocationScreen> {
   File? _selectedPhoto;
 
   bool _isExtracting = false;
+  bool _isGettingLocation = false;
   bool _isSubmitting = false;
 
   // History State
@@ -67,6 +69,51 @@ class _RequestLocationScreenState extends State<RequestLocationScreen> {
       }
     } catch (e) {
       _showToast('Gagal memilih gambar: $e', ToastificationType.error);
+    }
+  }
+
+  Future<void> _getCurrentLocation() async {
+    setState(() => _isGettingLocation = true);
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        _showToast('Layanan GPS HP belum aktif. Silakan aktifkan GPS/Lokasi perangkat Anda.', ToastificationType.warning);
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          _showToast('Izin akses lokasi ditolak.', ToastificationType.error);
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        _showToast('Izin lokasi ditolak permanen. Buka Pengaturan Aplikasi di HP untuk mengizinkan.', ToastificationType.error);
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      );
+
+      setState(() {
+        _latController.text = position.latitude.toStringAsFixed(7);
+        _lngController.text = position.longitude.toStringAsFixed(7);
+        if (_mapsUrlController.text.trim().isEmpty) {
+          _mapsUrlController.text = 'https://www.google.com/maps?q=${position.latitude},${position.longitude}';
+        }
+      });
+
+      _showToast('Titik koordinat lokasi Anda saat ini berhasil diambil!', ToastificationType.success);
+    } catch (e) {
+      _showToast('Gagal mengambil titik GPS: $e', ToastificationType.error);
+    } finally {
+      if (mounted) setState(() => _isGettingLocation = false);
     }
   }
 
@@ -488,6 +535,35 @@ class _RequestLocationScreenState extends State<RequestLocationScreen> {
                               ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                               : const Text('Ekstrak', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // ── Tombol "Gunakan Titik Koordinat Lokasi Saya Sekarang" ──
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: _isGettingLocation ? null : _getCurrentLocation,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: primaryColor,
+                        side: BorderSide(color: primaryColor, width: 1.5),
+                        backgroundColor: primaryColor.withValues(alpha: isDarkMode ? 0.15 : 0.06),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      ),
+                      icon: _isGettingLocation
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: primaryColor),
+                            )
+                          : const Icon(Icons.my_location_rounded, size: 20),
+                      label: Text(
+                        _isGettingLocation
+                            ? 'Mencari Titik GPS Anda...'
+                            : 'Gunakan Titik Koordinat Lokasi Saya Sekarang',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                       ),
                     ),
                   ),
