@@ -127,6 +127,46 @@ def get_local_ip():
         except Exception:
             return '127.0.0.1'
 
+def get_ide_quota_alert():
+    roaming = os.environ.get('APPDATA', '')
+    logs_dir = os.path.join(roaming, 'Antigravity IDE', 'logs')
+    if not os.path.exists(logs_dir):
+        return {"detected": False}
+    
+    log_files = glob.glob(os.path.join(logs_dir, '*', 'ls-main.log'))
+    if not log_files:
+        return {"detected": False}
+    
+    log_files.sort(key=lambda p: os.path.getmtime(p), reverse=True)
+    latest_log = log_files[0]
+    
+    alert = {"detected": False}
+    try:
+        with open(latest_log, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+            for line in reversed(lines):
+                if 'RESOURCE_EXHAUSTED' in line or 'Individual quota reached' in line:
+                    reset_m = re.search(r'Resets in ([\w\d]+)', line)
+                    time_m = re.search(r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
+                    log_date = time_m.group(1)[:10] if time_m else ""
+                    today_str = date.today().strftime('%Y-%m-%d')
+                    alert = {
+                        "detected": True,
+                        "is_today": (log_date == today_str),
+                        "type": "RESOURCE_EXHAUSTED",
+                        "status_code": 429,
+                        "title": "Individual Quota Reached (Error 429)",
+                        "message": "Kuota individual model Google AI telah mencapai batas.",
+                        "resets_in": reset_m.group(1) if reset_m else "167 jam (7 hari)",
+                        "log_time": time_m.group(1) if time_m else datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        "source": "Antigravity Language Server (ls-main.log)"
+                    }
+                    break
+    except Exception as e:
+        alert["error"] = str(e)
+        
+    return alert
+
 MODEL_PROFILES = {
     "gemini 3.8 flash": {"name": "Gemini 3.8 Flash (High)", "family": "gemini", "tier": "PRO/FREE", "pro_quota": 10000000, "free_quota": 1000000, "weight": 1.0, "icon": "fa-bolt-lightning", "color": "#10b981", "badge": "Flash High Speed"},
     "gemini 3.7 flash": {"name": "Gemini 3.7 Flash Medium", "family": "gemini", "tier": "PRO/FREE", "pro_quota": 10000000, "free_quota": 1000000, "weight": 1.0, "icon": "fa-bolt-lightning", "color": "#10b981", "badge": "Flash Medium"},
@@ -255,8 +295,23 @@ def get_session_stats():
     model_name = current_model
     profile = resolve_model_profile(model_name)
     total_est_tokens = total_chars // 4
-    baseline = cfg.get("baseline_tokens", 0)
-    account_used_tokens = max(0, total_est_tokens - baseline)
+
+    # Today stats & All time stats
+    today_str = date.today().strftime('%Y-%m-%d')
+    today_files = [p for p in sorted_transcripts if datetime.fromtimestamp(os.path.getmtime(p)).strftime('%Y-%m-%d') == today_str]
+    today_tokens = sum(os.path.getsize(p) for p in today_files) // 4
+    all_time_tokens = sum(os.path.getsize(p) for p in sorted_transcripts) // 4
+
+    # Check for live IDE quota alerts (Error 429 / fast requests exhaustion)
+    ide_alert = get_ide_quota_alert()
+
+    # Scope of token calculation: "today" (default) or "session"
+    quota_scope = cfg.get("quota_scope", "today")
+    if quota_scope == "today":
+        account_used_tokens = today_tokens
+    else:
+        baseline = cfg.get("baseline_tokens", 0)
+        account_used_tokens = max(0, total_est_tokens - baseline) if baseline < total_est_tokens else total_est_tokens
 
     # 1. Tier & Account Detection:
     ide_profile = get_ide_account_profile()
@@ -305,7 +360,10 @@ def get_session_stats():
     danger_thresh = cfg.get("danger_percent", 10)
     warning_thresh = cfg.get("warning_percent", 20)
 
-    if remaining_percent <= danger_thresh:
+    # Force DANGER status if IDE log caught a quota exhausted error
+    if ide_alert.get("detected"):
+        status = "DANGER"
+    elif remaining_percent <= danger_thresh:
         status = "DANGER"
     elif remaining_percent <= warning_thresh:
         status = "WARNING"
@@ -347,12 +405,6 @@ def get_session_stats():
     else:
         dyn_name = active_account_label or "Google AI User"
 
-    # Today stats
-    today_str = date.today().strftime('%Y-%m-%d')
-    today_files = [p for p in sorted_transcripts if datetime.fromtimestamp(os.path.getmtime(p)).strftime('%Y-%m-%d') == today_str]
-    today_tokens = sum(os.path.getsize(p) for p in today_files) // 4
-    all_time_tokens = sum(os.path.getsize(p) for p in sorted_transcripts) // 4
-
     recent_sessions_summary = []
     for p in sorted_transcripts[:6]:
         sid = os.path.basename(os.path.dirname(os.path.dirname(os.path.dirname(p))))
@@ -368,6 +420,7 @@ def get_session_stats():
 
     return {
         "timestamp": datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+        "ide_quota_alert": ide_alert,
         "active_session": {
             "conversation_id": conv_id,
             "model_name": model_name,
@@ -406,7 +459,10 @@ def get_session_stats():
         },
         "quota": {
             "quota_limit": quota_limit,
+            "quota_scope": quota_scope,
             "account_used_tokens": account_used_tokens,
+            "today_tokens": today_tokens,
+            "session_tokens": total_est_tokens,
             "remaining_tokens": remaining_tokens,
             "used_percent": used_percent,
             "remaining_percent": remaining_percent,
@@ -414,8 +470,11 @@ def get_session_stats():
             "warning_percent": warning_thresh,
             "danger_percent": danger_thresh,
             "active_account_name": active_account_label,
-            "baseline_tokens": baseline,
-            "auto_model_quota": auto_model_quota
+            "baseline_tokens": cfg.get("baseline_tokens", 0),
+            "auto_model_quota": auto_model_quota,
+            "has_ide_alert": ide_alert.get("detected", False),
+            "ide_alert_resets_in": ide_alert.get("resets_in", ""),
+            "ide_alert_time": ide_alert.get("log_time", "")
         },
         "overview": {
             "today_tokens": today_tokens,
@@ -567,6 +626,14 @@ class MonitorHandler(BaseHTTPRequestHandler):
             cfg['baseline_tokens'] = current_total
             save_config(cfg)
             self._send_json({"success": True, "baseline_tokens": current_total})
+
+        elif path == '/api/toggle-quota-scope':
+            cfg = load_config()
+            curr = cfg.get("quota_scope", "today")
+            new_scope = "session" if curr == "today" else "today"
+            cfg["quota_scope"] = new_scope
+            save_config(cfg)
+            self._send_json({"success": True, "quota_scope": new_scope})
 
         else:
             self.send_response(404)

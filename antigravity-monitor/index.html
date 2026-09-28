@@ -668,7 +668,10 @@
         <div class="kpi-card">
             <div>
                 <div class="kpi-card-header">
-                    <span class="kpi-label">TOKEN TERPAKAI</span>
+                    <div style="display: flex; align-items: center; gap: 0.4rem;">
+                        <span class="kpi-label">TOKEN TERPAKAI</span>
+                        <span id="btnQuotaScopeBadge" style="cursor: pointer; font-size: 0.65rem; padding: 1px 6px; border-radius: 4px; background: rgba(99,102,241,0.2); color: #a5b4fc; font-weight: 700; border: 1px solid rgba(99,102,241,0.4);" onclick="toggleQuotaScope()" title="Klik untuk beralih mode hitung kuota (Hari Ini vs Sesi Ini)">HARI INI</span>
+                    </div>
                     <div class="kpi-icon-mini" style="background: rgba(245, 158, 11, 0.15); color: #fbbf24;">
                         <i class="fa-solid fa-fire-flame-curved"></i>
                     </div>
@@ -717,6 +720,7 @@
                 <div class="kpi-sub" style="flex-direction: column; align-items: flex-start; gap: 2px;">
                     <div><span id="valTotalSteps">0</span> langkah &bull; <span id="valUserPrompts">0</span> prompt</div>
                     <div id="modelAutoBadge" style="font-size: 0.72rem; color: #10b981; font-weight: 600;"><i class="fa-solid fa-arrows-rotate"></i> Otomatis Deteksi Pilihan IDE</div>
+                    <div id="modelQuotaWarningBadge" style="display: none; font-size: 0.72rem; color: #ef4444; font-weight: 700; margin-top: 2px;"></div>
                 </div>
             </div>
             <div style="font-size: 0.72rem; color: #64748b; margin-top: 0.5rem; word-break: break-all;">
@@ -1195,7 +1199,37 @@
 
             banner.className = 'status-banner ' + q.status.toLowerCase();
 
-            if (q.status === 'DANGER') {
+            // Update Quota Scope Badge
+            const scopeBadge = document.getElementById('btnQuotaScopeBadge');
+            if (scopeBadge) {
+                const isToday = (q.quota_scope !== 'session');
+                scopeBadge.innerText = isToday ? 'HARI INI' : 'SESI INI';
+                scopeBadge.title = isToday ? 'Mode: Akumulasi Token Hari Ini. Klik untuk ubah ke sesi ini.' : 'Mode: Token Sesi Ini Saja. Klik untuk ubah ke hari ini.';
+            }
+
+            // Update Model Quota Warning Badge in Card 4
+            const modelWarnBadge = document.getElementById('modelQuotaWarningBadge');
+            if (modelWarnBadge) {
+                if (data.ide_quota_alert && data.ide_quota_alert.detected) {
+                    modelWarnBadge.style.display = 'block';
+                    modelWarnBadge.innerHTML = `<i class="fa-solid fa-gauge-high"></i> Speedometer Kuning &bull; Limit 429 (Reset: ${data.ide_quota_alert.resets_in || '7 hari'})`;
+                } else {
+                    modelWarnBadge.style.display = 'none';
+                }
+            }
+
+            if (data.ide_quota_alert && data.ide_quota_alert.detected) {
+                const al = data.ide_quota_alert;
+                banner.className = 'status-banner danger';
+                bIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>';
+                bMain.innerText = '🚨 LIMIT KUOTA IDE TERDETEKSI: Kuota Google AI Model Mencapai Batas (Error 429)';
+                bSub.innerHTML = `Google Antigravity melaporkan kuota individual model telah mencapai batas (indikator speedometer kuning aktif pada status bar IDE). Kuota individual akan di-reset otomatis dalam: <b style="color: #fca5a5;">${al.resets_in || '167 jam'}</b> (${al.log_time || 'Hari ini'}). Segera switch akun atau ganti model ke varian lain agar proses coding tetap cepat.`;
+                bAction.innerHTML = '<button type="button" class="btn-header btn-primary-action" style="background:#ef4444; border-color:#f87171;" onclick="openSwitchModal()"><i class="fa-solid fa-users-gear"></i> Panduan Ganti Model / Akun</button>';
+
+                if (lastKnownStatus !== 'DANGER' && document.getElementById('cfgAudioAlertCheck')?.checked) {
+                    playChimeAlert();
+                }
+            } else if (q.status === 'DANGER') {
                 bIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>';
                 bMain.innerText = '🚨 PERINGATAN KRITIS: Kuota Token Tinggal ' + q.remaining_percent + '%!';
                 bSub.innerText = 'Sisa token kurang dari ' + q.danger_percent + '%. Segera switch akun Google Antigravity sekarang agar sesi koding tidak berhenti.';
@@ -1291,6 +1325,15 @@
             return String(str).replace(/[&<>"']/g, function(m) {
                 return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[m];
             });
+        }
+
+        async function toggleQuotaScope() {
+            try {
+                await fetch('/api/toggle-quota-scope', { method: 'POST' });
+                fetchStats(true);
+            } catch (err) {
+                console.error("Gagal toggle scope kuota:", err);
+            }
         }
 
         async function setPresetQuota(val, badgeEl) {
