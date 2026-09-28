@@ -343,6 +343,12 @@ def get_session_stats():
             is_pro = False
             tier_reason = "Akun Standar Free"
 
+    # Dynamic Account Label (Strictly honor user config)
+    active_account_label = cfg.get("active_account_name", "")
+    if not active_account_label:
+        if ide_profile and ide_profile.get("email"):
+            active_account_label = f"{ide_profile.get('name', 'User')} ({ide_profile.get('email')})"
+
     # 2. Dynamic Quota based on Model and Tier:
     auto_model_quota = cfg.get("auto_model_quota", True)
     if auto_model_quota:
@@ -353,28 +359,29 @@ def get_session_stats():
     else:
         quota_limit = max(1000, cfg.get("quota_limit", 1000000))
 
-    remaining_tokens = max(0, quota_limit - account_used_tokens)
-    used_percent = min(100.0, round((account_used_tokens / quota_limit) * 100, 1))
-    remaining_percent = max(0.0, round(100.0 - used_percent, 1))
-
     danger_thresh = cfg.get("danger_percent", 10)
     warning_thresh = cfg.get("warning_percent", 20)
 
-    # Force DANGER status if IDE log caught a quota exhausted error
-    if ide_alert.get("detected"):
-        status = "DANGER"
-    elif remaining_percent <= danger_thresh:
-        status = "DANGER"
-    elif remaining_percent <= warning_thresh:
-        status = "WARNING"
-    else:
-        status = "HEALTHY"
+    # Check if IDE log caught a quota exhausted error (Error 429 / fast requests depleted)
+    dismissed_for = cfg.get("alert_dismissed_account", "")
+    alert_active = ide_alert.get("detected", False) and (active_account_label != dismissed_for)
 
-    # Dynamic Account Label (Strictly honor user config)
-    active_account_label = cfg.get("active_account_name", "")
-    if not active_account_label:
-        if ide_profile and ide_profile.get("email"):
-            active_account_label = f"{ide_profile.get('name', 'User')} ({ide_profile.get('email')})"
+    if alert_active:
+        status = "DANGER"
+        remaining_tokens = 0
+        used_percent = 100.0
+        remaining_percent = 0.0
+    else:
+        remaining_tokens = max(0, quota_limit - account_used_tokens)
+        used_percent = min(100.0, round((account_used_tokens / quota_limit) * 100, 1))
+        remaining_percent = max(0.0, round(100.0 - used_percent, 1))
+
+        if remaining_percent <= danger_thresh:
+            status = "DANGER"
+        elif remaining_percent <= warning_thresh:
+            status = "WARNING"
+        else:
+            status = "HEALTHY"
     # Dynamic user name and email extraction for any added or saved account
     matched_saved = None
     for sa in cfg.get("saved_accounts", []):
@@ -611,6 +618,7 @@ class MonitorHandler(BaseHTTPRequestHandler):
             cfg['active_account_name'] = new_account
             cfg['account_tier'] = new_tier
             cfg['baseline_tokens'] = current_total
+            cfg['alert_dismissed_account'] = new_account
             save_config(cfg)
 
             self._send_json({
@@ -618,6 +626,12 @@ class MonitorHandler(BaseHTTPRequestHandler):
                 "message": f"Berhasil switch ke {new_account} ({new_tier} Tier). Counter kuota di-reset untuk akun baru.",
                 "config": cfg
             })
+
+        elif path == '/api/dismiss-alert':
+            cfg = load_config()
+            cfg['alert_dismissed_account'] = cfg.get("active_account_name", "")
+            save_config(cfg)
+            self._send_json({"success": True, "message": "Alert berhasil di-dismiss."})
 
         elif path == '/api/reset-baseline':
             cfg = load_config()

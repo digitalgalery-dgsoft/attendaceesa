@@ -1109,8 +1109,17 @@
             document.getElementById('valSessionRawTokens').innerText = 'Sesi: ' + formatNumber(a.total_tokens_session);
             document.getElementById('valTodayTokens').innerText = 'Hari ini: ' + formatNumber(o.today_tokens);
 
-            document.getElementById('valTokensRemaining').innerText = formatNumber(q.remaining_tokens);
-            document.getElementById('valRemainingPercentText').innerText = q.remaining_percent + '%';
+            if (q.has_ide_alert) {
+                document.getElementById('valTokensRemaining').innerText = '0 (Habis)';
+                document.getElementById('valRemainingPercentText').innerText = '0% (Limit IDE)';
+                const bIconEl = document.getElementById('batteryIcon');
+                if (bIconEl) bIconEl.className = 'fa-solid fa-battery-empty';
+            } else {
+                document.getElementById('valTokensRemaining').innerText = formatNumber(q.remaining_tokens);
+                document.getElementById('valRemainingPercentText').innerText = q.remaining_percent + '%';
+                const bIconEl = document.getElementById('batteryIcon');
+                if (bIconEl) bIconEl.className = 'fa-solid fa-battery-three-quarters';
+            }
 
             // Tier Badge & Description
             if (data.tier_info) {
@@ -1218,13 +1227,13 @@
                 }
             }
 
-            if (data.ide_quota_alert && data.ide_quota_alert.detected) {
-                const al = data.ide_quota_alert;
+            if (q.has_ide_alert) {
+                const al = data.ide_quota_alert || {};
                 banner.className = 'status-banner danger';
                 bIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>';
-                bMain.innerText = '🚨 LIMIT KUOTA IDE TERDETEKSI: Kuota Google AI Model Mencapai Batas (Error 429)';
-                bSub.innerHTML = `Google Antigravity melaporkan kuota individual model telah mencapai batas (indikator speedometer kuning aktif pada status bar IDE). Kuota individual akan di-reset otomatis dalam: <b style="color: #fca5a5;">${al.resets_in || '167 jam'}</b> (${al.log_time || 'Hari ini'}). Segera switch akun atau ganti model ke varian lain agar proses coding tetap cepat.`;
-                bAction.innerHTML = '<button type="button" class="btn-header btn-primary-action" style="background:#ef4444; border-color:#f87171;" onclick="openSwitchModal()"><i class="fa-solid fa-users-gear"></i> Panduan Ganti Model / Akun</button>';
+                bMain.innerText = '🚨 KUOTA MODEL IDE HABIS / TERCAPAI (ERROR 429)';
+                bSub.innerHTML = `Google Antigravity melaporkan kuota individual model telah mencapai batas (indikator speedometer kuning aktif di status bar IDE). Sisa kuota model: <b style="color: #ef4444;">0% (Exhausted)</b>. Reset otomatis dalam: <b style="color: #fca5a5;">${al.resets_in || '167 jam'}</b> (${al.log_time || 'Hari ini'}). Segera switch akun di IDE atau ganti model ke varian lain.`;
+                bAction.innerHTML = '<div style="display:flex; gap:0.4rem; flex-wrap:wrap;"><button type="button" class="btn-header btn-primary-action" style="background:#ef4444; border-color:#f87171;" onclick="openSwitchModal()"><i class="fa-solid fa-users-gear"></i> Ganti Akun</button><button type="button" class="btn-header" style="background:rgba(255,255,255,0.1); border-color:#64748b; color:#f1f5f9;" onclick="dismissAlert()"><i class="fa-solid fa-check"></i> Sudah Ganti Akun</button></div>';
 
                 if (lastKnownStatus !== 'DANGER' && document.getElementById('cfgAudioAlertCheck')?.checked) {
                     playChimeAlert();
@@ -1333,6 +1342,15 @@
                 fetchStats(true);
             } catch (err) {
                 console.error("Gagal toggle scope kuota:", err);
+            }
+        }
+
+        async function dismissAlert() {
+            try {
+                await fetch('/api/dismiss-alert', { method: 'POST' });
+                fetchStats(true);
+            } catch (err) {
+                console.error("Gagal dismiss alert:", err);
             }
         }
 
