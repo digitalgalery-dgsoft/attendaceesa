@@ -1658,7 +1658,7 @@ class ReportTemplatePresetsSeeder extends Seeder
                         'field_label' => 'Alasan No Sell Out',
                         'field_name' => 'alasan_no_sell_out',
                         'field_type' => 'radio',
-                        'options' => ['Toko Tidak Mengijinkan', 'Barang OOS'],
+                        'options' => ['Stock Kosong (OOS)'],
                         'is_required' => false,
                     ],
                     [

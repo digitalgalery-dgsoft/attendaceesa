@@ -779,13 +779,13 @@ class WingsMbrExportService
                     if (stripos($vText, 'Toko Tidak Mengijinkan') !== false) {
                         $alasanNoSellOut = 'Toko Tidak Mengijinkan';
                         break;
-                    } elseif (stripos($vText, 'Barang OOS') !== false || stripos($vText, 'OOS') !== false) {
-                        $alasanNoSellOut = 'Barang OOS';
+                    } elseif (stripos($vText, 'Stock Kosong') !== false || stripos($vText, 'Barang OOS') !== false || stripos($vText, 'OOS') !== false) {
+                        $alasanNoSellOut = stripos($vText, 'Stock Kosong') !== false ? 'Stock Kosong (OOS)' : 'Barang OOS';
                         break;
                     }
                 }
                 if (empty($alasanNoSellOut)) {
-                    $alasanNoSellOut = 'Toko Tidak Mengijinkan';
+                    $alasanNoSellOut = ($template && (str_contains($template->code, 'REGULAR') || str_contains(strtolower($template->title ?? ''), 'regular'))) ? 'Stock Kosong (OOS)' : 'Toko Tidak Mengijinkan';
                 }
             }
 

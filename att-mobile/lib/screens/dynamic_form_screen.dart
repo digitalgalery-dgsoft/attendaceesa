@@ -1699,7 +1699,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final bool isWingsRegularSales = _isWingsRegularSalesTemplate();
     if (isWingsMbrSales || isWingsRegularSales) {
       _mbrSalesMode = 'booth';
-      _mbrNoSellOutReason = 'Toko Tidak Mengijinkan';
+      _mbrNoSellOutReason = isWingsRegularSales ? 'Stock Kosong (OOS)' : 'Toko Tidak Mengijinkan';
       _mbrNoSellOutNotesCtrl.clear();
       _mbrSalesCart.clear();
       _mbrSalesStep = 0;
@@ -1723,7 +1723,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             }
           } else if (fn == 'alasan_no_sell_out') {
             if (val.valueText != null && val.valueText!.isNotEmpty) {
-              _mbrNoSellOutReason = val.valueText!;
+              if (isWingsRegularSales && (val.valueText!.toLowerCase().contains('oos') || val.valueText!.toLowerCase().contains('kosong'))) {
+                _mbrNoSellOutReason = 'Stock Kosong (OOS)';
+              } else {
+                _mbrNoSellOutReason = val.valueText!;
+              }
             }
           } else if (fn == 'keterangan_no_sell_out' || fn == 'catatan_no_sell_out') {
             if (val.valueText != null) {
@@ -13481,6 +13485,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     bool isDarkMode,
     bool canSubmitReport,
   ) {
+    final bool isRegular = _isWingsRegularSalesTemplate();
+    if (isRegular && (_mbrNoSellOutReason == 'Toko Tidak Mengijinkan' || _mbrNoSellOutReason.isEmpty)) {
+      _mbrNoSellOutReason = 'Stock Kosong (OOS)';
+    }
+
+    final String oosTitle = isRegular ? 'Stock Kosong (OOS)' : 'Barang OOS (Out of Stock)';
+    final String oosValue = isRegular ? 'Stock Kosong (OOS)' : 'Barang OOS';
+    final bool isOosSelected = isRegular
+        ? (_mbrNoSellOutReason == 'Stock Kosong (OOS)' || _mbrNoSellOutReason == 'Barang OOS' || _mbrNoSellOutReason.isEmpty)
+        : (_mbrNoSellOutReason == 'Barang OOS' || _mbrNoSellOutReason == 'Stock Kosong (OOS)');
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -13583,89 +13598,91 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Option 1: Toko Tidak Mengijinkan
-              InkWell(
-                onTap: () => setState(() => _mbrNoSellOutReason = 'Toko Tidak Mengijinkan'),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
-                        ? const Color(0xFFE11D48).withOpacity(0.1)
-                        : elevatedColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
+              // Option 1: Toko Tidak Mengijinkan (Hanya untuk Event / Non-Regular)
+              if (!isRegular) ...[
+                InkWell(
+                  onTap: () => setState(() => _mbrNoSellOutReason = 'Toko Tidak Mengijinkan'),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
                       color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
-                          ? const Color(0xFFE11D48)
-                          : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                      width: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan' ? 1.5 : 1.0,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
-                            ? Icons.radio_button_checked_rounded
-                            : Icons.radio_button_off_rounded,
+                          ? const Color(0xFFE11D48).withOpacity(0.1)
+                          : elevatedColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
                         color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
                             ? const Color(0xFFE11D48)
-                            : subtitleColor,
-                        size: 20,
+                            : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                        width: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan' ? 1.5 : 1.0,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Toko Tidak Mengijinkan',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
-                                    ? const Color(0xFFE11D48)
-                                    : textColor,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Pihak toko tidak mengijinkan atau menolak aktivitas sell out.',
-                              style: TextStyle(fontSize: 11, color: subtitleColor),
-                            ),
-                          ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.radio_button_off_rounded,
+                          color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                              ? const Color(0xFFE11D48)
+                              : subtitleColor,
+                          size: 20,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Toko Tidak Mengijinkan',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: _mbrNoSellOutReason == 'Toko Tidak Mengijinkan'
+                                      ? const Color(0xFFE11D48)
+                                      : textColor,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Pihak toko tidak mengijinkan atau menolak aktivitas sell out.',
+                                style: TextStyle(fontSize: 11, color: subtitleColor),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 10),
+                const SizedBox(height: 10),
+              ],
 
-              // Option 2: Barang OOS
+              // Option 2: Stock Kosong (OOS) / Barang OOS
               InkWell(
-                onTap: () => setState(() => _mbrNoSellOutReason = 'Barang OOS'),
+                onTap: () => setState(() => _mbrNoSellOutReason = oosValue),
                 borderRadius: BorderRadius.circular(12),
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: _mbrNoSellOutReason == 'Barang OOS'
+                    color: isOosSelected
                         ? const Color(0xFFE11D48).withOpacity(0.1)
                         : elevatedColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: _mbrNoSellOutReason == 'Barang OOS'
+                      color: isOosSelected
                           ? const Color(0xFFE11D48)
                           : (isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                      width: _mbrNoSellOutReason == 'Barang OOS' ? 1.5 : 1.0,
+                      width: isOosSelected ? 1.5 : 1.0,
                     ),
                   ),
                   child: Row(
                     children: [
                       Icon(
-                        _mbrNoSellOutReason == 'Barang OOS'
+                        isOosSelected
                             ? Icons.radio_button_checked_rounded
                             : Icons.radio_button_off_rounded,
-                        color: _mbrNoSellOutReason == 'Barang OOS'
+                        color: isOosSelected
                             ? const Color(0xFFE11D48)
                             : subtitleColor,
                         size: 20,
@@ -13676,18 +13693,20 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Barang OOS (Out of Stock)',
+                              oosTitle,
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: _mbrNoSellOutReason == 'Barang OOS'
+                                color: isOosSelected
                                     ? const Color(0xFFE11D48)
                                     : textColor,
                               ),
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Stok barang di toko kosong / habis sehingga tidak ada penjualan.',
+                              isRegular
+                                  ? 'Stok produk di toko kosong / habis sehingga tidak ada transaksi penjualan reguler.'
+                                  : 'Stok barang di toko kosong / habis sehingga tidak ada penjualan.',
                               style: TextStyle(fontSize: 11, color: subtitleColor),
                             ),
                           ],
@@ -13851,9 +13870,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         return;
       }
 
+      final String effectiveReason = _isWingsRegularSalesTemplate() ? 'Stock Kosong (OOS)' : _mbrNoSellOutReason;
       final Map<String, dynamic> cleanFormValues = {
         'status_penjualan': 'No Sell Out',
-        'alasan_no_sell_out': _mbrNoSellOutReason,
+        'alasan_no_sell_out': effectiveReason,
         'keterangan_no_sell_out': _mbrNoSellOutNotesCtrl.text.trim(),
         'catatan': _mbrNoSellOutNotesCtrl.text.trim(),
         'catatan_penjualan': _mbrNoSellOutNotesCtrl.text.trim(),
@@ -13915,7 +13935,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           context: context,
           type: ToastificationType.success,
           title: const Text('Laporan No Sell Out Terkirim'),
-          description: Text(result['message'] ?? 'Laporan No Sell Out ($_mbrNoSellOutReason) berhasil dikirim.'),
+          description: Text(result['message'] ?? 'Laporan No Sell Out ($effectiveReason) berhasil dikirim.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
         _returnToReportingScreen();
@@ -15826,7 +15846,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: InkWell(
-                        onTap: () => setState(() => _mbrSalesMode = 'no_sell_out'),
+                        onTap: () => setState(() {
+                          _mbrSalesMode = 'no_sell_out';
+                          _mbrNoSellOutReason = 'Stock Kosong (OOS)';
+                        }),
                         borderRadius: BorderRadius.circular(10),
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),

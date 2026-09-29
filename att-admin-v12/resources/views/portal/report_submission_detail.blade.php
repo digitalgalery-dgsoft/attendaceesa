@@ -1444,13 +1444,13 @@
                 if (stripos($vText, 'Toko Tidak Mengijinkan') !== false) {
                     $mbrAlasanNoSellOut = 'Toko Tidak Mengijinkan';
                     break;
-                } elseif (stripos($vText, 'Barang OOS') !== false || stripos($vText, 'OOS') !== false) {
-                    $mbrAlasanNoSellOut = 'Barang OOS';
+                } elseif (stripos($vText, 'Stock Kosong') !== false || stripos($vText, 'Barang OOS') !== false || stripos($vText, 'OOS') !== false) {
+                    $mbrAlasanNoSellOut = stripos($vText, 'Stock Kosong') !== false ? 'Stock Kosong (OOS)' : 'Barang OOS';
                     break;
                 }
             }
             if (empty($mbrAlasanNoSellOut)) {
-                $mbrAlasanNoSellOut = 'Toko Tidak Mengijinkan';
+                $mbrAlasanNoSellOut = ($template && (str_contains($template->code, 'REGULAR') || str_contains(strtolower($template->title ?? ''), 'regular'))) ? 'Stock Kosong (OOS)' : 'Toko Tidak Mengijinkan';
             }
         }
 
