@@ -796,7 +796,7 @@ class ReportingApiController extends Controller
         $hasCheckInLog = \App\Models\AttendanceLog::where('employee_id', $employee->id)
             ->where(function ($q) use ($checkDates) {
                 foreach ($checkDates as $d) {
-                    $q->orWhereDate('logged_at', $d);
+                    $q->orWhereBetween('logged_at', ["{$d} 00:00:00", "{$d} 23:59:59"]);
                 }
             })
             ->whereIn('log_type', ['check_in', 'checkin'])
@@ -805,7 +805,7 @@ class ReportingApiController extends Controller
         $hasActiveVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
             ->where(function ($q) use ($checkDates) {
                 foreach ($checkDates as $d) {
-                    $q->orWhereDate('logged_at', $d);
+                    $q->orWhereBetween('logged_at', ["{$d} 00:00:00", "{$d} 23:59:59"]);
                 }
             })
             ->where('log_type', 'visit_in')
@@ -823,7 +823,7 @@ class ReportingApiController extends Controller
         $lastVisitIn = \App\Models\AttendanceLog::where('employee_id', $employee->id)
             ->where(function ($q) use ($checkDates) {
                 foreach ($checkDates as $d) {
-                    $q->orWhereDate('logged_at', $d);
+                    $q->orWhereBetween('logged_at', ["{$d} 00:00:00", "{$d} 23:59:59"]);
                 }
             })
             ->where('log_type', 'visit_in')
@@ -891,15 +891,62 @@ class ReportingApiController extends Controller
                 }
             }
 
-            // Idempotency: Prevent duplicate submissions within 15 seconds from the same employee & store
+            // Decode payload values lebih awal untuk identifikasi item pada pengecekan idempotensi
+            $valuesInput = $request->input('values');
+            if (is_string($valuesInput)) {
+                $valuesInput = json_decode($valuesInput, true) ?? [];
+            }
+            if (!is_array($valuesInput)) {
+                $valuesInput = [];
+            }
+
+            // Normalisasi key di valuesInput agar pencarian fleksibel (ID, field_name, label slug, lowercase)
+            $normalizedValues = [];
+            foreach ($valuesInput as $k => $v) {
+                $strK = (string)$k;
+                $normalizedValues[$strK] = $v;
+                $normalizedValues[strtolower(trim($strK))] = $v;
+                $normalizedValues[strtolower(str_replace([' ', '-'], '_', trim($strK)))] = $v;
+            }
+
+            // Idempotency: Cegah double submit jika item dan form yang sama persis dikirim dalam 10 detik.
+            // Untuk template sequential (seperti Wings Tools, Daily Maintenance mesin, produk),
+            // item yang berbeda (misal nama_tools berbeda) TIDAK dianggap duplikat.
             $recentDuplicate = ReportSubmission::where('employee_id', $employee->id)
                 ->where('report_template_id', $template->id)
-                ->where('submitted_at', '>=', now()->subSeconds(15))
+                ->where('submitted_at', '>=', now()->subSeconds(10))
+                ->with('values')
                 ->latest('id')
                 ->first();
 
-            if ($recentDuplicate) {
-                if ($recentDuplicate->work_location_id == $workLocationId || $recentDuplicate->store_name == $storeName) {
+            if ($recentDuplicate && ($recentDuplicate->work_location_id == $workLocationId || $recentDuplicate->store_name == $storeName)) {
+                $isSameItem = true;
+
+                $discriminatorFields = [
+                    'nama_tools',
+                    'tipe_mesin_post',
+                    'tipe_mesin',
+                    'produk_terjual',
+                    'sub_brand',
+                    'subbrand_produk',
+                    'subbrand_kompetitor',
+                    'merk_kompetitor',
+                    'kategori_tinter',
+                    'status_ketersediaan',
+                ];
+
+                foreach ($discriminatorFields as $df) {
+                    $newVal = trim((string)($normalizedValues[$df] ?? ''));
+                    if ($newVal !== '') {
+                        $prevVal = trim((string)($recentDuplicate->values->firstWhere('field_name', $df)?->value_text ?? ''));
+                        if ($prevVal !== '' && strcasecmp($newVal, $prevVal) !== 0) {
+                            $isSameItem = false;
+                            break;
+                        }
+                    }
+                }
+
+                if ($isSameItem) {
                     return response()->json([
                         'status' => 'success',
                         'message' => 'Laporan sudah berhasil diterima sebelumnya.',
@@ -914,29 +961,11 @@ class ReportingApiController extends Controller
 
             DB::beginTransaction();
 
-            // Decode payload values jika dikirimkan sebagai JSON string atau array
-            $valuesInput = $request->input('values');
-            if (is_string($valuesInput)) {
-                $valuesInput = json_decode($valuesInput, true) ?? [];
-            }
-            if (!is_array($valuesInput)) {
-                $valuesInput = [];
-            }
-
             \Log::info("Reporting submission payload for [{$template->code}] code {$submissionCode}", [
                 'employee_id' => $employee->id,
                 'values_count' => count($valuesInput),
                 'values_keys' => array_keys($valuesInput),
             ]);
-
-            // Normalisasi key di valuesInput agar pencarian fleksibel (ID, field_name, label slug, lowercase)
-            $normalizedValues = [];
-            foreach ($valuesInput as $k => $v) {
-                $strK = (string)$k;
-                $normalizedValues[$strK] = $v;
-                $normalizedValues[strtolower(trim($strK))] = $v;
-                $normalizedValues[strtolower(str_replace([' ', '-'], '_', trim($strK)))] = $v;
-            }
 
             // Cek apakah ini template Offtake dengan cart multi-produk
             $offtakeItems = [];

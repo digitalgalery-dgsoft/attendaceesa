@@ -2446,16 +2446,18 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
-    setState(() => _isSubmitting = true);
-    CustomLoadingIndicator.show(context, message: 'Mengirim formulir laporan...');
-
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final repProvider = Provider.of<DynamicReportingProvider>(context, listen: false);
     final token = auth.token;
 
     if (token == null) {
-      CustomLoadingIndicator.hide(context);
-      setState(() => _isSubmitting = false);
+      toastification.show(
+        context: context,
+        type: ToastificationType.error,
+        title: const Text('Sesi Kedaluwarsa'),
+        description: const Text('Silakan login kembali untuk mengirim laporan.'),
+        autoCloseDuration: const Duration(seconds: 3),
+      );
       return;
     }
 
@@ -2532,7 +2534,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: Text('Mesin "$submittedMachineValue" sudah dilaporkan hari ini. Silakan pilih mesin lain yang belum dilaporkan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        setState(() => _isSubmitting = false);
         return;
       }
     }
@@ -2546,7 +2547,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         description: Text('Produk "$submittedCategoryValue" sudah dilaporkan hari ini. Silakan pilih produk lain.'),
         autoCloseDuration: const Duration(seconds: 4),
       );
-      setState(() => _isSubmitting = false);
       return;
     }
 
@@ -2559,9 +2559,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         description: Text('Tools "$submittedCategoryValue" sudah dilaporkan hari ini. Silakan pilih tools lain yang belum dilaporkan.'),
         autoCloseDuration: const Duration(seconds: 4),
       );
-      setState(() => _isSubmitting = false);
       return;
     }
+
+    setState(() => _isSubmitting = true);
+    CustomLoadingIndicator.show(context, message: 'Mengirim formulir laporan...');
 
     // Buat salinan bersih dari formValues tanpa path file lokal perangkat
     // Kirim dengan DUA key: ID angka (f.id) dan field_name agar server 100% selalu cocok
@@ -2779,12 +2781,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           );
         }
 
-        // Sinkronkan status template di background
-        final auth = Provider.of<AuthProvider>(context, listen: false);
-        if (auth.token != null) {
-          repProvider.fetchTemplates(auth.token!, forceRefresh: true, storeId: _selectedWorkLocationId);
-        }
-
         if (_isDailyMaintenanceTemplate()) {
           final int remM = _getRemainingMachinesCount();
           toastification.show(
@@ -2836,29 +2832,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           description: Text(result['message'] ?? 'Seluruh laporan berhasil diselesaikan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
-        if (widget.editSubmission != null) {
-          _returnToReportingScreen();
-        } else {
-          setState(() {
-            for (final f in widget.template.fields) {
-              final fieldKey = f.id.toString();
-              if (!['date', 'datepicker'].contains(f.fieldType)) {
-                _controllers[fieldKey]?.clear();
-                _formValues.remove(fieldKey);
-                _formValues.remove(f.fieldName);
-              }
-            }
-            _photoFiles.clear();
-            _multiPhotoFiles.clear();
-            _watermarkTexts.clear();
-            _existingPhotoUrls.clear();
-            _existingMultiPhotoUrls.clear();
-          });
-          _recalculateFormulas();
-          if (_scrollController.hasClients) {
-            _scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
-          }
+        final auth = Provider.of<AuthProvider>(context, listen: false);
+        if (auth.token != null) {
+          repProvider.fetchTemplates(auth.token!, forceRefresh: true, storeId: _selectedWorkLocationId);
         }
+        _returnToReportingScreen();
       }
     } else if (mounted) {
       toastification.show(
