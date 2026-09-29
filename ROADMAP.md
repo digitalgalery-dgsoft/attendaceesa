@@ -2489,7 +2489,7 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Mode **Ada Penjualan**: Pemilihan 1 produk dari Master Produk Mie Sedaap via bottom sheet pencarian, input Harga Toko (Rp), Qty Penjualan (Dus/Pcs), live calculation Value Total (Rp), banner informasi "1 Produk 1 Submit Laporan", dan tombol submit langsung "Kirim Laporan Penjualan (Regular)".
         - Mode **No Sell Out**: Khusus Laporan Penjualan Regular, pilihan alasan kendala disederhanakan hanya berupa radio **Stock Kosong (OOS)** tanpa opsi "Toko Tidak Mengizinkan", catatan kendala opsional, dan tombol submit instan No Sell Out.
       - Mengembangkan handler `_submitWingsRegularSales()` yang menyusun payload JSON rapi (`mbr_sales_items_json` 1 item), field kuantiti & value, auto-approval tanpa foto sell out toko, serta auto-reset form setelah sukses submit agar siap untuk produk berikutnya.
-      - **Versi Rilis Mobile**: Menaikkan versi aplikasi menjadi **`1.0.163+163`** pada `pubspec.yaml` dan sukses mengompilasi APK release (`app-release.apk`).
+      - **Versi Rilis Mobile**: Menaikkan versi aplikasi menjadi **`1.0.163+163`** pada `pubspec.yaml` dan sukses mengompilasi APK release (`app-release.apk`) serta Android App Bundle (`app-release.aab`) untuk rilis Google Play Console.
     - **Implementasi Backend & Portal Dashboard**:
       - **Migrasi Database (`2026_09_30_100000_seed_wings_regular_sales_report_template.php`)**: Membuat template `RPT-WINGS-REGULAR-SALES-01`, kategori `offtake`, grup `regular`, warna `#D32F2F`, serta menghubungkannya ke Principal Wings Surya dan seluruh master produk aktif.
       - **Preset Seeder (`ReportTemplatePresetsSeeder.php`)**: Mendaftarkan template Laporan Penjualan (Regular) pada seeder master template.
