@@ -240,13 +240,13 @@
 
             <div style="margin-top: 12px;">
                 @php
-                    $firstLog = $logs->firstWhere('latitude', '!=', null);
+                    $hasTracking = ($trackingCount > 0) || ($logs->contains(fn($l) => !empty($l->latitude) && !empty($l->longitude)));
                 @endphp
-                @if($firstLog && $firstLog->latitude && $firstLog->longitude)
+                @if($hasTracking)
                     <a
-                        href="https://maps.google.com/maps?q={{ $firstLog->latitude }},{{ $firstLog->longitude }}"
+                        href="{{ route('portal.attendances.route', array_filter(['record' => $attendance?->id, 'employee_id' => $employee?->id, 'date' => $date, 'p' => $tenantPrincipal->id])) }}"
                         target="_blank"
-                        style="display: block; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #ffffff; font-size: 11px; font-weight: 700; padding: 8px 12px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 6px rgba(37,99,235,0.25);"
+                        style="display: block; text-align: center; background: linear-gradient(135deg, #0284c7 0%, #2563eb 100%); color: #ffffff; font-size: 11px; font-weight: 700; padding: 8px 12px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 6px rgba(37,99,235,0.25); transition: all 0.15s ease;"
                     >
                         🗺️ Lihat Rute Live Tracking (Peta)
                     </a>

@@ -5766,6 +5766,129 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Halaman Interaktif Live Tracking Rute GPS Presensi Karyawan
+     */
+    public function viewTrackingRoute(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) {
+            return redirect()->route('tenant.login');
+        }
+
+        $recordId = (int)$request->query('record');
+        $employeeId = (int)$request->query('employee_id');
+        $date = $request->query('date');
+
+        $attendance = null;
+        if ($recordId > 0) {
+            $attendance = Attendance::whereHas('employee', function($q) use ($scopedPrincipalIds) {
+                $q->whereIn('employees.principal_id', $scopedPrincipalIds);
+            })->with([
+                'employee.department', 'employee.position', 'employee.branch', 'employee.principal', 'employee.company',
+                'employeeSchedule.workLocation.company', 'employeeSchedule.shift'
+            ])->find($recordId);
+        }
+
+        if ($attendance) {
+            $employee = $attendance->employee;
+            $date = Carbon::parse($attendance->attendance_date)->format('Y-m-d');
+        } elseif ($employeeId > 0) {
+            $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)
+                ->with(['department', 'position', 'branch', 'principal', 'company'])
+                ->find($employeeId);
+            if (!$employee) {
+                abort(404, 'Karyawan tidak ditemukan atau berada di luar akses prinsiple ini.');
+            }
+            $date = $date ? Carbon::parse($date)->format('Y-m-d') : Carbon::today('Asia/Jakarta')->format('Y-m-d');
+            $attendance = Attendance::where('employee_id', $employee->id)
+                ->where('attendance_date', $date)
+                ->with([
+                    'employeeSchedule.workLocation.company', 'employeeSchedule.shift'
+                ])
+                ->first();
+        } else {
+            abort(404, 'Data presensi karyawan tidak ditemukan.');
+        }
+
+        $schedule = EmployeeSchedule::where('employee_id', $employee->id)
+            ->where('schedule_date', $date)
+            ->with(['workLocation.company', 'shift'])
+            ->first();
+
+        $activityLogs = AttendanceLog::where('employee_id', $employee->id)
+            ->where(function($q) use ($attendance, $date) {
+                if ($attendance) {
+                    $q->where('attendance_id', $attendance->id);
+                }
+                $q->orWhereDate('logged_at', $date);
+            })
+            ->with(['itineraryItem.workLocation'])
+            ->orderBy('logged_at', 'asc')
+            ->get();
+
+        $timezone = 'Asia/Jakarta';
+        if ($schedule && $schedule->workLocation && $schedule->workLocation->timezone) {
+            $timezone = $schedule->workLocation->timezone;
+        } elseif ($employee && $employee->timezone && in_array($employee->timezone, ['Asia/Jakarta', 'Asia/Makassar', 'Asia/Jayapura'])) {
+            $timezone = $employee->timezone;
+        } elseif ($employee && $employee->company && $employee->company->timezone) {
+            $timezone = $employee->company->timezone;
+        }
+
+        try {
+            new \DateTimeZone($timezone);
+        } catch (\Exception $e) {
+            $timezone = 'Asia/Jakarta';
+        }
+
+        $points = \App\Models\TrackingHistory::where('employee_id', $employee->id)
+            ->where(function($q) use ($attendance, $date) {
+                if ($attendance) {
+                    $q->where('attendance_id', $attendance->id);
+                }
+                $q->orWhereDate('created_at', $date);
+            })
+            ->orderBy('created_at', 'asc')
+            ->get(['latitude', 'longitude', 'created_at']);
+
+        $totalDistanceMeter = 0;
+        $prevLat = null;
+        $prevLng = null;
+
+        $trackingHistories = $points->map(function ($item) use ($timezone, &$prevLat, &$prevLng, &$totalDistanceMeter) {
+            $lat = (float) $item->latitude;
+            $lng = (float) $item->longitude;
+
+            if ($prevLat !== null && $prevLng !== null) {
+                $dLat = deg2rad($lat - $prevLat);
+                $dLon = deg2rad($lng - $prevLng);
+                $a = sin($dLat / 2) * sin($dLat / 2) +
+                     cos(deg2rad($prevLat)) * cos(deg2rad($lat)) *
+                     sin($dLon / 2) * sin($dLon / 2);
+                $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+                $totalDistanceMeter += (6371000 * $c);
+            }
+            $prevLat = $lat;
+            $prevLng = $lng;
+
+            $time = Carbon::parse($item->created_at)->timezone($timezone);
+
+            return [
+                'latitude'   => $lat,
+                'longitude'  => $lng,
+                'created_at' => $time->format('H:i:s'),
+            ];
+        })->toArray();
+
+        $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
+
+        return view('portal.tracking_history', compact(
+            'tenantPrincipal', 'brandColor', 'employee', 'attendance', 'schedule', 'activityLogs',
+            'trackingHistories', 'totalDistanceMeter', 'date'
+        ));
+    }
+
+    /**
      * Export Attendance Logs to CSV
      */
     public function exportAttendances(Request $request)

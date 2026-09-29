@@ -595,6 +595,7 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/attendances', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'attendances'])->name('attendances');
     Route::get('/attendances/detail-modal', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'attendanceDetailModal'])->name('attendances.modal');
     Route::get('/attendances/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportAttendances'])->name('attendances.export');
+    Route::get('/attendances/view-route', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'viewTrackingRoute'])->name('attendances.route');
     Route::get('/schedules', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'schedulesList'])->name('schedules');
     Route::post('/schedules', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'storeSchedule'])->name('schedules.store');
     Route::post('/schedules/working-group', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'generateFromWorkingGroup'])->name('schedules.working_group');
