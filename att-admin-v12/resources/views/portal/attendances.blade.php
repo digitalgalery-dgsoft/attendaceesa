@@ -362,6 +362,9 @@
 @endpush
 
 @section('content')
+@php
+    $todayStr = $todayStr ?? \Carbon\Carbon::now('Asia/Jakarta')->toDateString();
+@endphp
 <div class="roster-page-wrapper">
     {{-- Breadcrumb & Top Action Header (Sesuai Screenshot 1) --}}
     <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;">

@@ -5692,13 +5692,14 @@ class PrincipalPortalController extends Controller
         $filterEmployees = Employee::whereIn('principal_id', $scopedPrincipalIds)->orderBy('full_name')->get();
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
+        $todayStr = now()->timezone('Asia/Jakarta')->toDateString();
 
         return view('portal.attendances', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
             'pagedEmployees', 'totalEmployeesCount', 'totalScheduledEmployees',
             'attendances', 'schedules', 'leaves', 'holidayMap', 'daysInPeriod',
             'startDate', 'endDate', 'summary', 'pagination', 'branches', 'filterEmployees',
-            'search', 'filterBranchId', 'filterPrincipalId', 'filterEmployeeId', 'perPage', 'setting'
+            'search', 'filterBranchId', 'filterPrincipalId', 'filterEmployeeId', 'perPage', 'setting', 'todayStr'
         ));
     }
 
