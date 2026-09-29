@@ -1750,11 +1750,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   final pName = first['product_name']?.toString() ?? '';
                   _currentMbrSalesProduct = prods.firstWhere(
                     (p) => (pId != null && p.id == pId) || p.name.toLowerCase() == pName.toLowerCase(),
-                    orElse: () => Product(
-                      id: pId is int ? pId : 0,
+                    orElse: () => TemplateProductModel(
+                      id: pId is int ? pId : (int.tryParse(pId?.toString() ?? '0') ?? 0),
                       name: pName,
                       skuCode: first['sku_code']?.toString(),
-                      price: (first['distributor_price'] as num?)?.toDouble(),
+                      price: (first['distributor_price'] as num?)?.toDouble() ?? 0.0,
                     ),
                   );
                   _mbrStorePriceCtrl.text = (first['store_price'] ?? '').toString();
