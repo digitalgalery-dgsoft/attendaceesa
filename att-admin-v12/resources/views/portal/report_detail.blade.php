@@ -1835,7 +1835,7 @@
                                         @foreach($submissions as $idx => $sub)
                                             @php
                                                 $status = $sub->status ?? 'pending';
-                                                $storeName = $sub->workLocation?->name ?? $sub->itineraryItem?->destination ?? $sub->store_name ?? 'Kunjungan Toko';
+                                                $storeName = strtoupper(trim((string)($sub->workLocation?->name ?? $sub->itineraryItem?->destination ?? $sub->store_name ?? 'Kunjungan Toko')));
                                             @endphp
                                             <tr>
                                                 <td style="color: var(--text-muted); font-weight: 700; text-align: center;">
@@ -1856,7 +1856,7 @@
                                                 </td>
                                                 <td>
                                                     <div style="font-weight: 700; color: var(--text-heading);">
-                                                        {{ $sub->employee?->full_name ?? $sub->employee?->name ?? 'Petugas' }}
+                                                        {{ strtoupper($sub->employee?->full_name ?? $sub->employee?->name ?? 'Petugas') }}
                                                     </div>
                                                     <div style="font-size: 0.75rem; color: var(--text-muted);">
                                                         NIK: {{ $sub->employee?->nik ?? '-' }}
@@ -1864,7 +1864,7 @@
                                                 </td>
                                                 <td>
                                                     <div style="font-weight: 700; color: var(--text-heading);">
-                                                        {{ $storeName }}
+                                                        {{ strtoupper($storeName) }}
                                                     </div>
                                                     <div style="font-size: 0.75rem; color: var(--text-muted);">
                                                         {{ $sub->employee?->branch?->name ?? ($sub->workLocation?->address ? \Illuminate\Support\Str::limit($sub->workLocation->address, 35) : '-') }}

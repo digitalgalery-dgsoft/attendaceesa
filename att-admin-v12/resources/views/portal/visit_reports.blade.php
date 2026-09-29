@@ -53,10 +53,10 @@
                         {{ $vr->visited_at ? Carbon\Carbon::parse($vr->visited_at)->translatedFormat('d M Y H:i') : '-' }}
                     </td>
                     <td>
-                        <div style="font-weight: 700; color: var(--text-heading);">{{ $vr->employee?->full_name ?? 'Petugas' }}</div>
+                        <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($vr->employee?->full_name ?? 'Petugas') }}</div>
                         <div style="font-size: 0.75rem; color: var(--text-muted);">NIK: {{ $vr->employee?->nik ?? '-' }}</div>
                     </td>
-                    <td style="font-weight: 600;">{{ $vr->itineraryItem?->workLocation?->name ?? 'Toko / Outlet' }}</td>
+                    <td style="font-weight: 600;">{{ strtoupper($vr->itineraryItem?->workLocation?->name ?? 'Toko / Outlet') }}</td>
                     <td>{{ $vr->employee?->branch?->name ?? '-' }}</td>
                     <td>{{ $vr->notes ?? '-' }}</td>
                     <td>

@@ -724,7 +724,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $m['name'] }}</div>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($m['name']) }}</div>
                                     <div style="font-size: 0.74rem; color: var(--text-muted);">Rp {{ number_format($m['value'], 0, ',', '.') }}</div>
                                 </td>
                                 <td style="color: var(--text-muted); font-weight: 600;">{{ $m['area'] }}</td>
@@ -780,7 +780,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $p['name'] }}</div>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($p['name']) }}</div>
                                     @if(!empty($p['sku']) && $p['sku'] !== '-')
                                         <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">{{ $p['sku'] }}</div>
                                     @endif
@@ -957,9 +957,9 @@
                     @forelse($submissions as $idx => $sub)
                         @php
                             $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB' : ($sub->created_at ? $sub->created_at->timezone('Asia/Jakarta')->translatedFormat('d M Y, H:i') . ' WIB' : '-');
-                            $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas';
+                            $empName = strtoupper(trim($sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas'));
                             $empNik = $sub->employee?->nik ?? ($sub->employee?->employee_no ?? '-');
-                            $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
+                            $storeName = strtoupper(trim($sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet')));
                             $storeArea = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
                             
                             $cart = [];
@@ -1072,7 +1072,7 @@
                             if (!empty($cart)) {
                                 $calcQ = 0; $calcV = 0;
                                 foreach($cart as &$item) {
-                                    $item['product_name'] = !empty($item['product_name']) ? $item['product_name'] : (!empty($item['name']) ? $item['name'] : (!empty($item['nama_produk']) ? $item['nama_produk'] : 'Produk Wings'));
+                                    $item['product_name'] = strtoupper(trim(!empty($item['product_name']) ? $item['product_name'] : (!empty($item['name']) ? $item['name'] : (!empty($item['nama_produk']) ? $item['nama_produk'] : 'Produk Wings'))));
                                     $q = (int)($item['qty'] ?? 1);
                                     $pr = (float)($item['store_price'] ?? ($item['price'] ?? 0));
                                     $v = (float)($item['value_rp'] ?? ($q * $pr));
@@ -1112,11 +1112,11 @@
                                 <div style="font-size: 0.74rem; color: var(--text-muted); font-family: monospace;">{{ $sub->submission_code }}</div>
                             </td>
                             <td>
-                                <div style="font-weight: 700; color: var(--text-heading);">{{ $empName }}</div>
+                                <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($empName) }}</div>
                                 <div style="font-size: 0.74rem; color: var(--text-muted);">NIK: {{ $empNik }}</div>
                             </td>
                             <td>
-                                <div style="font-weight: 700; color: var(--text-heading);">{{ $storeName }}</div>
+                                <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($storeName) }}</div>
                                 <div style="font-size: 0.74rem; color: var(--text-muted);">{{ $storeArea }}</div>
                             </td>
                             <td>
@@ -1124,7 +1124,7 @@
                                     <div style="display: flex; flex-direction: column; gap: 4px;">
                                         @foreach(array_slice($cart, 0, 2) as $cItem)
                                             @php
-                                                $itemName = $cItem['product_name'] ?? ($cItem['name'] ?? ($cItem['nama_produk'] ?? 'Produk'));
+                                                $itemName = strtoupper(trim($cItem['product_name'] ?? ($cItem['name'] ?? ($cItem['nama_produk'] ?? 'Produk'))));
                                                 $itemQty = (int)($cItem['qty'] ?? 1);
                                                 $itemPrice = (float)($cItem['store_price'] ?? ($cItem['price'] ?? 0));
                                             @endphp
@@ -1555,7 +1555,7 @@
                             ${cart.map((item, i) => {
                                 const rawPhoto = item.struk_photo_url || item.foto_struk || item.struk_photo_path || item.photo_struk_url || null;
                                 const strukUrl = rawPhoto ? resolveUrl(rawPhoto) : null;
-                                const pName = item.product_name || item.name || item.nama_produk || 'Produk Wings';
+                                const pName = (item.product_name || item.name || item.nama_produk || 'Produk Wings').toUpperCase();
                                 const pSku = item.sku_code || item.sku || '-';
                                 return `
                                     <tr>
@@ -1668,11 +1668,11 @@
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Petugas / Mitra</span>
-                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.employee?.full_name || sub.employee?.name || 'Petugas'}</div>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${(sub.employee?.full_name || sub.employee?.name || 'Petugas').toUpperCase()}</div>
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Toko / Lokasi</span>
-                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.work_location?.name || sub.store_name || '-'}</div>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${(sub.work_location?.name || sub.store_name || '-').toUpperCase()}</div>
                 </div>
             </div>
 
@@ -1753,7 +1753,7 @@
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
                                     <td>
-                                        <div style="font-weight: 700; color: var(--text-heading);">${it.name}</div>
+                                        <div style="font-weight: 700; color: var(--text-heading);">${(it.name || '').toUpperCase()}</div>
                                         ${it.sku && it.sku !== '-' ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${it.sku}</div>` : ''}
                                     </td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
@@ -1812,9 +1812,9 @@
                             ${list.length > 0 ? list.map((it, idx) => `
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${(it.mitra || '-').toUpperCase()}</td>
                                     <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
-                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
                                     <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
                                 </tr>
@@ -1871,9 +1871,9 @@
                             ${list.length > 0 ? list.map((it, idx) => `
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
-                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
-                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${(it.mitra || '-').toUpperCase()}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${(it.product || '-').toUpperCase()}</td>
+                                    <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
                                     <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
                                 </tr>
@@ -1931,10 +1931,10 @@
                             ${list.length > 0 ? list.map((it, idx) => `
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${(it.mitra || '-').toUpperCase()}</td>
                                     <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
-                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
-                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${(it.product || '-').toUpperCase()}</td>
+                                    <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
                                     <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
                                 </tr>

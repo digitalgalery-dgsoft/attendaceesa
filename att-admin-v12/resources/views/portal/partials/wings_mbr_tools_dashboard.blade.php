@@ -787,12 +787,12 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 800; color: var(--text-heading);">{{ $emp['name'] }}</div>
+                                    <div style="font-weight: 800; color: var(--text-heading);">{{ strtoupper($emp['name']) }}</div>
                                     <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">NIK: {{ $emp['nik'] }}</div>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 600; color: var(--text-heading);">{{ $emp['branch_name'] }}</div>
-                                    <div style="font-size: 0.72rem; color: var(--text-muted);">{{ Str::limit($emp['store_name'], 18) }}</div>
+                                    <div style="font-weight: 600; color: var(--text-heading);">{{ strtoupper($emp['branch_name']) }}</div>
+                                    <div style="font-size: 0.72rem; color: var(--text-muted);">{{ strtoupper(Str::limit($emp['store_name'], 18)) }}</div>
                                 </td>
                                 <td class="num" style="font-weight: 900; color: #d32f2f; font-size: 0.95rem;">
                                     {{ $emp['total_reports'] }}
@@ -960,7 +960,7 @@
                             </td>
                             <td>
                                 <div style="font-weight: 800; color: var(--text-heading);">
-                                    {{ $sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas') }}
+                                    {{ strtoupper($sub->employee?->full_name ?? ($sub->employee?->name ?? 'Petugas')) }}
                                 </div>
                                 <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">
                                     NIK: {{ $sub->employee?->employee_no ?? '-' }}
@@ -968,10 +968,10 @@
                             </td>
                             <td>
                                 <div style="font-weight: 700; color: var(--text-heading);">
-                                    {{ $sub->workLocation?->name ?? ($sub->store_name ?? '-') }}
+                                    {{ strtoupper($sub->workLocation?->name ?? ($sub->store_name ?? '-')) }}
                                 </div>
                                 <div style="font-size: 0.72rem; color: var(--text-muted);">
-                                    {{ $sub->workLocation?->branch?->name ?? ($sub->employee?->branch?->name ?? '-') }}
+                                    {{ strtoupper($sub->workLocation?->branch?->name ?? ($sub->employee?->branch?->name ?? '-')) }}
                                 </div>
                             </td>
                             <td>
@@ -1656,11 +1656,11 @@
                 <tr>
                     <td style="text-align: center; color: var(--text-muted); font-weight: 700; font-size: 0.75rem;">${idx + 1}</td>
                     <td>
-                        <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${item.store_name || '-'}</div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted);">${item.branch_name || '-'}</div>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${(item.store_name || '-').toUpperCase()}</div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);">${(item.branch_name || '-').toUpperCase()}</div>
                     </td>
                     <td>
-                        <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${item.employee_name || 'Petugas'}</div>
+                        <div style="font-weight: 800; color: var(--text-heading); font-size: 0.85rem;">${(item.employee_name || 'Petugas').toUpperCase()}</div>
                         <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">NIK: ${item.employee_nik || '-'}</div>
                     </td>
                     <td style="white-space: nowrap; font-size: 0.78rem;">

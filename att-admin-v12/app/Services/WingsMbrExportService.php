@@ -712,11 +712,11 @@ class WingsMbrExportService
         foreach ($submissions as $sub) {
             $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d H:i:s') : ($sub->created_at ? $sub->created_at->format('Y-m-d H:i:s') : '-');
             $emp = $sub->employee;
-            $empName = $emp ? ($emp->full_name ?: $emp->name) : 'Petugas / Mitra';
+            $empName = strtoupper(trim($emp ? ($emp->full_name ?: $emp->name) : 'Petugas / Mitra'));
             $empNik = $emp ? ($emp->employee_no ?: ($emp->nik ?: '-')) : '-';
             $wl = $sub->workLocation;
-            $storeName = $wl ? $wl->name : ($sub->store_name ?: 'Toko / Outlet');
-            $branchName = $wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-');
+            $storeName = strtoupper(trim($wl ? $wl->name : ($sub->store_name ?: 'Toko / Outlet')));
+            $branchName = strtoupper(trim($wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-')));
             $rawReg = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : null);
             $regionName = $this->normalizeRegionName($rawReg);
 
@@ -736,7 +736,7 @@ class WingsMbrExportService
                     $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                     if (is_array($raw)) {
                         foreach ($raw as $item) {
-                            $pName = $item['product_name'] ?? ($item['name'] ?? ($item['nama_produk'] ?? 'Produk Wings'));
+                            $pName = strtoupper(trim($item['product_name'] ?? ($item['name'] ?? ($item['nama_produk'] ?? 'Produk Wings'))));
                             $pQty = (int)($item['qty'] ?? 1);
                             $pPrice = (float)($item['store_price'] ?? ($item['price'] ?? 0));
                             $formattedPrice = number_format($pPrice, 0, ',', '.');
@@ -1377,11 +1377,11 @@ class WingsMbrExportService
         foreach ($submissions as $sub) {
             $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d H:i:s') : ($sub->created_at ? $sub->created_at->format('Y-m-d H:i:s') : '-');
             $emp = $sub->employee;
-            $empName = $emp ? ($emp->full_name ?: $emp->name) : 'Petugas / Mitra';
+            $empName = strtoupper(trim($emp ? ($emp->full_name ?: $emp->name) : 'Petugas / Mitra'));
             $empNik = $emp ? ($emp->employee_no ?: ($emp->nik ?: '-')) : '-';
             $wl = $sub->workLocation;
-            $storeName = $wl ? $wl->name : ($sub->store_name ?: 'Toko / Outlet');
-            $branchName = $wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-');
+            $storeName = strtoupper(trim($wl ? $wl->name : ($sub->store_name ?: 'Toko / Outlet')));
+            $branchName = strtoupper(trim($wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-')));
             $rawReg = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : null);
             $regionName = $this->normalizeRegionName($rawReg);
 
@@ -1398,7 +1398,7 @@ class WingsMbrExportService
                     $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
                     if (is_array($raw)) {
                         foreach ($raw as $item) {
-                            $pName = $item['name'] ?? ($item['product_name'] ?? 'Varian');
+                            $pName = strtoupper(trim($item['name'] ?? ($item['product_name'] ?? 'Varian')));
                             $pD = $item['dimasak'] ?? 0;
                             $pC = $item['cup'] ?? 0;
                             $variantDetails[] = "{$pName} ({$pD} pcs -> {$pC} cup)";
@@ -1962,11 +1962,11 @@ class WingsMbrExportService
         foreach ($submissions as $sub) {
             $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d H:i:s') : ($sub->created_at ? $sub->created_at->format('Y-m-d H:i:s') : '-');
             $emp = $sub->employee;
-            $empName = $emp ? ($emp->full_name ?: $emp->name) : 'Petugas Lapangan';
+            $empName = strtoupper(trim($emp ? ($emp->full_name ?: $emp->name) : 'Petugas Lapangan'));
             $empNik = $emp ? ($emp->employee_no ?: ($emp->nik ?: '-')) : '-';
             $wl = $sub->workLocation;
-            $storeName = $wl ? $wl->name : ($sub->store_name ?: 'Outlet');
-            $branchName = $wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-');
+            $storeName = strtoupper(trim($wl ? $wl->name : ($sub->store_name ?: 'Outlet')));
+            $branchName = strtoupper(trim($wl && $wl->branch ? $wl->branch->name : ($emp && $emp->branch ? $emp->branch->name : '-')));
             $rawReg = $wl && !empty($wl->region) ? $wl->region : ($emp && $emp->branch && !empty($emp->branch->region) ? $emp->branch->region : null);
             $regionName = $this->normalizeRegionName($rawReg);
 

@@ -2148,6 +2148,21 @@ class PrincipalPortalController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        foreach ($submissions as $subItem) {
+            if ($subItem->employee) {
+                $subItem->employee->full_name = strtoupper(trim((string)($subItem->employee->full_name ?: $subItem->employee->name)));
+            }
+            if ($subItem->workLocation) {
+                $subItem->workLocation->name = strtoupper(trim((string)$subItem->workLocation->name));
+                if ($subItem->workLocation->branch) {
+                    $subItem->workLocation->branch->name = strtoupper(trim((string)$subItem->workLocation->branch->name));
+                }
+            }
+            if (!empty($subItem->store_name)) {
+                $subItem->store_name = strtoupper(trim((string)$subItem->store_name));
+            }
+        }
+
         // Dynamic Dashboard Configuration & Widget Calculation Engine (Cached 5 Menit)
         $dashboardConfig = $template->resolved_dashboard_config;
         $widgets = $dashboardConfig['widgets'] ?? [];
@@ -4860,9 +4875,12 @@ class PrincipalPortalController extends Controller
             $product->image_path = $request->file('image')->store('products', 'public');
         }
 
+        $newName = trim($validated['name']);
+        $newSku = trim($validated['sku_code']);
+
         $product->update([
-            'name' => trim($validated['name']),
-            'sku_code' => trim($validated['sku_code']),
+            'name' => $newName,
+            'sku_code' => $newSku,
             'barcode' => !empty($validated['barcode']) ? trim($validated['barcode']) : null,
             'brand' => !empty($validated['brand']) ? trim($validated['brand']) : null,
             'category' => !empty($validated['category']) ? trim($validated['category']) : null,
@@ -4871,6 +4889,43 @@ class PrincipalPortalController extends Controller
             'uom' => !empty($validated['uom']) ? trim($validated['uom']) : 'Pcs',
             'description' => $validated['description'] ?? null,
         ]);
+
+        // Sync historical submission values for Wings MBR reports
+        try {
+            $upperName = strtoupper($newName);
+            $upperSku = strtoupper($newSku);
+            DB::table('report_submission_values')
+                ->whereIn('field_name', ['mbr_freetaste_items_json', 'mbr_sampling_items_json', 'mbr_sales_items_json'])
+                ->chunkById(100, function($vals) use ($product, $upperName, $upperSku) {
+                    foreach ($vals as $val) {
+                        $raw = is_array($val->value_json) ? $val->value_json : (is_string($val->value_text) ? json_decode($val->value_text, true) : null);
+                        if (!is_array($raw)) continue;
+                        $changed = false;
+                        foreach ($raw as &$it) {
+                            $pId = $it['product_id'] ?? ($it['id'] ?? null);
+                            $sku = !empty($it['sku_code'] ?? ($it['sku'] ?? '')) ? strtoupper(trim((string)($it['sku_code'] ?? $it['sku']))) : '';
+                            if (($pId && (int)$pId === (int)$product->id) || ($sku !== '' && $sku === $upperSku)) {
+                                $it['name'] = $upperName;
+                                $it['product_name'] = $upperName;
+                                $it['sku_code'] = $upperSku;
+                                $it['sku'] = $upperSku;
+                                $changed = true;
+                            }
+                        }
+                        unset($it);
+                        if ($changed) {
+                            $encoded = json_encode($raw);
+                            DB::table('report_submission_values')->where('id', $val->id)->update([
+                                'value_text' => $encoded,
+                                'value_json' => $encoded,
+                                'updated_at' => now(),
+                            ]);
+                        }
+                    }
+                });
+        } catch (\Throwable $e) {
+            \Log::warning("Could not sync ReportSubmissionValues on updateProduct: " . $e->getMessage());
+        }
 
         return redirect()->route('portal.products')->with('success', 'Data produk berhasil diperbarui!');
     }
@@ -6017,6 +6072,15 @@ class PrincipalPortalController extends Controller
         $visitReports = $query->with(['employee.branch', 'itineraryItem.workLocation'])
             ->orderBy('visited_at', 'desc')
             ->paginate(20);
+
+        foreach ($visitReports as $vr) {
+            if ($vr->employee) {
+                $vr->employee->full_name = strtoupper(trim((string)($vr->employee->full_name ?: $vr->employee->name)));
+            }
+            if ($vr->itineraryItem && $vr->itineraryItem->workLocation) {
+                $vr->itineraryItem->workLocation->name = strtoupper(trim((string)$vr->itineraryItem->workLocation->name));
+            }
+        }
 
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
@@ -12423,6 +12487,47 @@ class PrincipalPortalController extends Controller
     }
 
     /**
+     * Preload and index master products for live lookup and dynamic name sync.
+     * Ensures reports always show updated master names in uppercase.
+     */
+    protected function getMasterProductsLookup(?int $principalId = null): array
+    {
+        $query = Product::query();
+        if ($principalId) {
+            $query->where('principal_id', $principalId);
+        }
+        $products = $query->get();
+
+        $byId = [];
+        $bySku = [];
+
+        foreach ($products as $p) {
+            $upperName = strtoupper(trim((string)$p->name));
+            $upperSku = !empty($p->sku_code) ? strtoupper(trim((string)$p->sku_code)) : '';
+            $cleanSku = $upperSku ? preg_replace('/\s+/', ' ', $upperSku) : '';
+
+            $item = [
+                'id' => $p->id,
+                'name' => $upperName,
+                'sku' => $upperSku,
+                'price' => (float)$p->price,
+            ];
+
+            $byId[$p->id] = $item;
+            if ($cleanSku !== '') {
+                $bySku[$cleanSku] = $item;
+                $noSpace = str_replace(' ', '', $cleanSku);
+                if ($noSpace !== $cleanSku) {
+                    $bySku[$noSpace] = $item;
+                }
+            }
+        }
+
+        return [$byId, $bySku];
+    }
+
+
+    /**
      * Calculate Executive Sales Dashboard Data for Wings Event MBR (RPT-WINGS-MBR-SALES-01)
      * Purely data-driven from actual ReportSubmission records (No Dummy Data)
      */
@@ -12500,6 +12605,9 @@ class PrincipalPortalController extends Controller
         $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
         $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
 
+        // Preload Master Products for dynamic name and SKU synchronization (100% Upper Case)
+        [$masterProductsById, $masterProductsBySku] = $this->getMasterProductsLookup($template->principal_id);
+
         // 2. Retrieve distinct regions, areas, stores, and employees strictly from the actual submissions of this template
         $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
             ->with(['workLocation.branch', 'employee.branch'])
@@ -12532,8 +12640,8 @@ class PrincipalPortalController extends Controller
                 ];
             }
 
-            // Toko / Outlet (dari workLocation atau store_name)
-            $storeName = !empty($wl?->name) ? trim($wl->name) : (!empty($subItem->store_name) ? trim($subItem->store_name) : null);
+            // Toko / Outlet (dari workLocation atau store_name) - WAJIB UPPERCASE
+            $storeName = !empty($wl?->name) ? strtoupper(trim($wl->name)) : (!empty($subItem->store_name) ? strtoupper(trim($subItem->store_name)) : null);
             $storeId = $wl?->id ?? ($subItem->store_name ?? null);
             if ($storeName && !isset($storesList[$storeName])) {
                 $storesList[$storeName] = (object)[
@@ -12544,10 +12652,10 @@ class PrincipalPortalController extends Controller
                 ];
             }
 
-            // Karyawan / Mitra (dari actual submissions)
+            // Karyawan / Mitra (dari actual submissions) - WAJIB UPPERCASE
             if ($emp) {
                 $empId = $emp->id;
-                $empName = trim($emp->full_name ?: ($emp->name ?: ''));
+                $empName = strtoupper(trim($emp->full_name ?: ($emp->name ?: '')));
                 $empNik = $emp->employee_no ?: ($emp->nik ?: '-');
                 if ($empName && !isset($employeesList[$empId])) {
                     $employeesList[$empId] = (object)[
@@ -12612,12 +12720,12 @@ class PrincipalPortalController extends Controller
         foreach ($allSubmissions as $sub) {
             $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d') : ($sub->created_at ? $sub->created_at->format('Y-m-d') : Carbon::now()->format('Y-m-d'));
             $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d F Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d F Y') : Carbon::now()->translatedFormat('d F Y'));
-            $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas / Mitra';
+            $empName = strtoupper(trim((string)($sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'PETUGAS / MITRA')));
             $empNik = $sub->employee ? ($sub->employee->employee_no ?: ($sub->employee->nik ?: '-')) : '-';
-            $branchName = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
+            $branchName = strtoupper(trim((string)($sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-'))));
             $rawRegion = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : null);
             $regionName = $this->normalizeWingsRegionName($rawRegion);
-            $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
+            $storeName = strtoupper(trim((string)($sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'TOKO / OUTLET'))));
 
             $uniqueStoresMap[$storeName] = true;
 
@@ -12683,9 +12791,31 @@ class PrincipalPortalController extends Controller
                     $calcV += $v;
                     if (str_contains($pt, 'kasir')) $calcK += $v; else $calcB += $v;
 
-                    $pName = strtoupper(trim((string)(!empty($cIt['product_name']) ? $cIt['product_name'] : (!empty($cIt['name']) ? $cIt['name'] : (!empty($cIt['nama_produk']) ? $cIt['nama_produk'] : 'PRODUK')))));
-                    $pSku = $cIt['sku_code'] ?? ($cIt['sku'] ?? '-');
+                    $pId = $cIt['product_id'] ?? ($cIt['id'] ?? null);
+                    $rawSku = $cIt['sku_code'] ?? ($cIt['sku'] ?? '');
+                    $cleanSku = !empty($rawSku) ? preg_replace('/\s+/', ' ', strtoupper(trim((string)$rawSku))) : '';
+
+                    $mProd = null;
+                    if ($pId && isset($masterProductsById[$pId])) {
+                        $mProd = $masterProductsById[$pId];
+                    } elseif ($cleanSku !== '' && isset($masterProductsBySku[$cleanSku])) {
+                        $mProd = $masterProductsBySku[$cleanSku];
+                    }
+
+                    if ($mProd) {
+                        $pName = strtoupper(trim((string)$mProd['name']));
+                        $pSku = !empty($mProd['sku']) ? $mProd['sku'] : ($cleanSku ?: '-');
+                    } else {
+                        $pName = strtoupper(trim((string)(!empty($cIt['product_name']) ? $cIt['product_name'] : (!empty($cIt['name']) ? $cIt['name'] : (!empty($cIt['nama_produk']) ? $cIt['nama_produk'] : 'PRODUK')))));
+                        $pSku = $cleanSku ?: '-';
+                    }
+
+                    $cIt['name'] = $pName;
+                    $cIt['product_name'] = $pName;
+                    $cIt['sku_code'] = $pSku;
+                    $cIt['sku'] = $pSku;
                     $uniqueProductsMap[$pName] = true;
+
 
                     if (!isset($productAgg[$pName])) {
                         $productAgg[$pName] = ['name' => $pName, 'sku' => $pSku, 'price' => $price, 'qty' => 0, 'value' => 0, 'breakdown' => []];
@@ -12932,6 +13062,56 @@ class PrincipalPortalController extends Controller
         $uniqueStoresCount = count($uniqueStoresMap);
         $uniqueProductsCount = count($uniqueProductsMap);
 
+        // Ensure all submission models in paginator have uppercase names & synced product names
+        foreach ($submissions as $subItem) {
+            if ($subItem->employee) {
+                $subItem->employee->full_name = strtoupper(trim((string)($subItem->employee->full_name ?: $subItem->employee->name)));
+            }
+            if ($subItem->workLocation) {
+                $subItem->workLocation->name = strtoupper(trim((string)$subItem->workLocation->name));
+                if ($subItem->workLocation->branch) {
+                    $subItem->workLocation->branch->name = strtoupper(trim((string)$subItem->workLocation->branch->name));
+                }
+            }
+            if (!empty($subItem->store_name)) {
+                $subItem->store_name = strtoupper(trim((string)$subItem->store_name));
+            }
+            foreach ($subItem->values as $v) {
+                $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                if ($fn === 'mbr_sales_items_json') {
+                    $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                    if (is_array($raw)) {
+                        foreach ($raw as &$it) {
+                            $pId = $it['product_id'] ?? ($it['id'] ?? null);
+                            $rawSku = $it['sku_code'] ?? ($it['sku'] ?? '');
+                            $cleanSku = !empty($rawSku) ? preg_replace('/\s+/', ' ', strtoupper(trim((string)$rawSku))) : '';
+
+                            $mProd = null;
+                            if ($pId && isset($masterProductsById[$pId])) {
+                                $mProd = $masterProductsById[$pId];
+                            } elseif ($cleanSku !== '' && isset($masterProductsBySku[$cleanSku])) {
+                                $mProd = $masterProductsBySku[$cleanSku];
+                            }
+
+                            if ($mProd) {
+                                $it['name'] = strtoupper(trim((string)$mProd['name']));
+                                $it['product_name'] = strtoupper(trim((string)$mProd['name']));
+                                $it['sku_code'] = !empty($mProd['sku']) ? $mProd['sku'] : ($cleanSku ?: '-');
+                                $it['sku'] = $it['sku_code'];
+                            } else {
+                                $currN = strtoupper(trim((string)($it['name'] ?? ($it['product_name'] ?? 'PRODUK'))));
+                                $it['name'] = $currN;
+                                $it['product_name'] = $currN;
+                            }
+                        }
+                        unset($it);
+                        $v->value_json = $raw;
+                        $v->value_text = json_encode($raw);
+                    }
+                }
+            }
+        }
+
         return [
             'submissions' => $submissions,
             'regions' => $regions,
@@ -13048,6 +13228,9 @@ class PrincipalPortalController extends Controller
         $allSubmissions = (clone $query)->orderBy('submitted_at', 'desc')->get();
         $submissions = (clone $query)->orderBy('submitted_at', 'desc')->paginate($perPage);
 
+        // Preload Master Products for dynamic name and SKU synchronization (100% Upper Case)
+        [$masterProductsById, $masterProductsBySku] = $this->getMasterProductsLookup($template->principal_id);
+
         // 2. Retrieve distinct regions, areas, stores, and employees strictly from the actual submissions of this template
         $allTemplateSubmissions = ReportSubmission::where('report_template_id', $template->id)
             ->with(['workLocation.branch', 'employee.branch'])
@@ -13078,7 +13261,8 @@ class PrincipalPortalController extends Controller
                 ];
             }
 
-            $storeName = !empty($wl?->name) ? trim($wl->name) : (!empty($subItem->store_name) ? trim($subItem->store_name) : null);
+            // Toko / Outlet (dari workLocation atau store_name) - WAJIB UPPERCASE
+            $storeName = !empty($wl?->name) ? strtoupper(trim($wl->name)) : (!empty($subItem->store_name) ? strtoupper(trim($subItem->store_name)) : null);
             $storeId = $wl?->id ?? ($subItem->store_name ?? null);
             if ($storeName && !isset($storesList[$storeName])) {
                 $storesList[$storeName] = (object)[
@@ -13089,10 +13273,10 @@ class PrincipalPortalController extends Controller
                 ];
             }
 
-            // Karyawan / Mitra (dari actual submissions)
+            // Karyawan / Mitra (dari actual submissions) - WAJIB UPPERCASE
             if ($emp) {
                 $empId = $emp->id;
-                $empName = trim($emp->full_name ?: ($emp->name ?: ''));
+                $empName = strtoupper(trim($emp->full_name ?: ($emp->name ?: '')));
                 $empNik = $emp->employee_no ?: ($emp->nik ?: '-');
                 if ($empName && !isset($employeesList[$empId])) {
                     $employeesList[$empId] = (object)[
@@ -13191,12 +13375,12 @@ class PrincipalPortalController extends Controller
         foreach ($allSubmissions as $sub) {
             $subDate = $sub->submitted_at ? $sub->submitted_at->format('Y-m-d') : ($sub->created_at ? $sub->created_at->format('Y-m-d') : Carbon::now()->format('Y-m-d'));
             $subDateDisplay = $sub->submitted_at ? $sub->submitted_at->translatedFormat('d F Y') : ($sub->created_at ? $sub->created_at->translatedFormat('d F Y') : Carbon::now()->translatedFormat('d F Y'));
-            $empName = $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Petugas / Mitra';
+            $empName = strtoupper(trim((string)($sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'PETUGAS / MITRA')));
             $empNik = $sub->employee ? ($sub->employee->employee_no ?: ($sub->employee->nik ?: '-')) : '-';
-            $branchName = $sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-');
+            $branchName = strtoupper(trim((string)($sub->workLocation && $sub->workLocation->branch ? $sub->workLocation->branch->name : ($sub->employee && $sub->employee->branch ? $sub->employee->branch->name : '-'))));
             $rawRegion = $sub->workLocation && !empty($sub->workLocation->region) ? $sub->workLocation->region : ($sub->employee && $sub->employee->branch && !empty($sub->employee->branch->region) ? $sub->employee->branch->region : null);
             $regionName = $this->normalizeWingsRegionName($rawRegion);
-            $storeName = $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'Toko / Outlet');
+            $storeName = strtoupper(trim((string)($sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: 'TOKO / OUTLET'))));
 
             $uniqueStoresMap[$storeName] = true;
 
@@ -13298,9 +13482,31 @@ class PrincipalPortalController extends Controller
                     $calcAkhir += $akhir;
                     $calcCup += $cup;
 
-                    $pName = strtoupper(trim($cIt['name'] ?? ($cIt['product_name'] ?? 'PRODUK')));
-                    $pSku = $cIt['sku_code'] ?? ($cIt['sku'] ?? '-');
+                    $pId = $cIt['product_id'] ?? ($cIt['id'] ?? null);
+                    $rawSku = $cIt['sku_code'] ?? ($cIt['sku'] ?? '');
+                    $cleanSku = !empty($rawSku) ? preg_replace('/\s+/', ' ', strtoupper(trim((string)$rawSku))) : '';
+
+                    $mProd = null;
+                    if ($pId && isset($masterProductsById[$pId])) {
+                        $mProd = $masterProductsById[$pId];
+                    } elseif ($cleanSku !== '' && isset($masterProductsBySku[$cleanSku])) {
+                        $mProd = $masterProductsBySku[$cleanSku];
+                    }
+
+                    if ($mProd) {
+                        $pName = strtoupper(trim((string)$mProd['name']));
+                        $pSku = !empty($mProd['sku']) ? $mProd['sku'] : ($cleanSku ?: '-');
+                    } else {
+                        $pName = strtoupper(trim((string)(!empty($cIt['name']) ? $cIt['name'] : (!empty($cIt['product_name']) ? $cIt['product_name'] : 'PRODUK'))));
+                        $pSku = $cleanSku ?: '-';
+                    }
+
+                    $cIt['name'] = $pName;
+                    $cIt['product_name'] = $pName;
+                    $cIt['sku_code'] = $pSku;
+                    $cIt['sku'] = $pSku;
                     $uniqueProductsMap[$pName] = true;
+
 
                     if (!isset($productAgg[$pName])) {
                         $productAgg[$pName] = [
@@ -13589,6 +13795,56 @@ class PrincipalPortalController extends Controller
 
         $cupPerPcs = $totalDimasak > 0 ? round($totalCup / $totalDimasak, 1) : 0;
 
+        // Ensure all submission models in paginator have uppercase names & synced product names
+        foreach ($submissions as $subItem) {
+            if ($subItem->employee) {
+                $subItem->employee->full_name = strtoupper(trim((string)($subItem->employee->full_name ?: $subItem->employee->name)));
+            }
+            if ($subItem->workLocation) {
+                $subItem->workLocation->name = strtoupper(trim((string)$subItem->workLocation->name));
+                if ($subItem->workLocation->branch) {
+                    $subItem->workLocation->branch->name = strtoupper(trim((string)$subItem->workLocation->branch->name));
+                }
+            }
+            if (!empty($subItem->store_name)) {
+                $subItem->store_name = strtoupper(trim((string)$subItem->store_name));
+            }
+            foreach ($subItem->values as $v) {
+                $fn = strtolower(trim((string)($v->field_name ?: ($v->formField ? $v->formField->field_name : ''))));
+                if ($fn === 'mbr_freetaste_items_json' || str_contains($fn, 'freetaste_items') || str_contains($fn, 'sampling_items')) {
+                    $raw = is_array($v->value_json) ? $v->value_json : (is_string($v->value_text) ? json_decode($v->value_text, true) : null);
+                    if (is_array($raw)) {
+                        foreach ($raw as &$it) {
+                            $pId = $it['product_id'] ?? ($it['id'] ?? null);
+                            $rawSku = $it['sku_code'] ?? ($it['sku'] ?? '');
+                            $cleanSku = !empty($rawSku) ? preg_replace('/\s+/', ' ', strtoupper(trim((string)$rawSku))) : '';
+
+                            $mProd = null;
+                            if ($pId && isset($masterProductsById[$pId])) {
+                                $mProd = $masterProductsById[$pId];
+                            } elseif ($cleanSku !== '' && isset($masterProductsBySku[$cleanSku])) {
+                                $mProd = $masterProductsBySku[$cleanSku];
+                            }
+
+                            if ($mProd) {
+                                $it['name'] = strtoupper(trim((string)$mProd['name']));
+                                $it['product_name'] = strtoupper(trim((string)$mProd['name']));
+                                $it['sku_code'] = !empty($mProd['sku']) ? $mProd['sku'] : ($cleanSku ?: '-');
+                                $it['sku'] = $it['sku_code'];
+                            } else {
+                                $currN = strtoupper(trim((string)($it['name'] ?? ($it['product_name'] ?? 'PRODUK'))));
+                                $it['name'] = $currN;
+                                $it['product_name'] = $currN;
+                            }
+                        }
+                        unset($it);
+                        $v->value_json = $raw;
+                        $v->value_text = json_encode($raw);
+                    }
+                }
+            }
+        }
+
         return [
             'submissions' => $submissions,
             'regions' => $regions,
@@ -13742,7 +13998,7 @@ class PrincipalPortalController extends Controller
                 ];
             }
 
-            $storeName = !empty($wl?->name) ? trim($wl->name) : (!empty($subItem->store_name) ? trim($subItem->store_name) : null);
+            $storeName = !empty($wl?->name) ? strtoupper(trim($wl->name)) : (!empty($subItem->store_name) ? strtoupper(trim($subItem->store_name)) : null);
             $storeId = $wl?->id ?? ($subItem->store_name ?? null);
             if ($storeName && !isset($storesList[$storeName])) {
                 $storesList[$storeName] = (object)[
@@ -13756,7 +14012,7 @@ class PrincipalPortalController extends Controller
             // Karyawan / Mitra (dari actual submissions)
             if ($emp) {
                 $empId = $emp->id;
-                $empName = trim($emp->full_name ?: ($emp->name ?: ''));
+                $empName = strtoupper(trim($emp->full_name ?: ($emp->name ?: '')));
                 $empNik = $emp->employee_no ?: ($emp->nik ?: '-');
                 if ($empName && !isset($employeesList[$empId])) {
                     $employeesList[$empId] = (object)[
@@ -13909,10 +14165,10 @@ class PrincipalPortalController extends Controller
         foreach ($allSubmissions as $sub) {
             $emp = $sub->employee;
             $empId = $sub->employee_id ?? ($emp?->id ?? 0);
-            $empName = $emp?->full_name ?? ($emp?->name ?? 'Petugas Lapangan');
+            $empName = strtoupper(trim($emp?->full_name ?? ($emp?->name ?? 'Petugas Lapangan')));
             $empNik = $emp?->employee_no ?? ($emp?->nik ?? '-');
-            $branchName = $emp?->branch?->name ?? ($sub->workLocation?->branch?->name ?? '-');
-            $storeName = $sub->workLocation?->name ?? ($sub->store_name ?? 'Outlet');
+            $branchName = strtoupper(trim($emp?->branch?->name ?? ($sub->workLocation?->branch?->name ?? '-')));
+            $storeName = strtoupper(trim($sub->workLocation?->name ?? ($sub->store_name ?? 'Outlet')));
             $storeId = $sub->work_location_id ?? $storeName;
 
             if (!isset($uniqueStoresMap[$storeId])) {
@@ -14167,6 +14423,22 @@ class PrincipalPortalController extends Controller
         $chartAda = array_column(array_values($dailyTrend), 'ada');
         $chartTidak = array_column(array_values($dailyTrend), 'tidak');
         $chartTidakBagus = array_column(array_values($dailyTrend), 'tidak_bagus');
+
+        // Ensure all submission models in paginator have uppercase names
+        foreach ($submissions as $subItem) {
+            if ($subItem->employee) {
+                $subItem->employee->full_name = strtoupper(trim((string)($subItem->employee->full_name ?: $subItem->employee->name)));
+            }
+            if ($subItem->workLocation) {
+                $subItem->workLocation->name = strtoupper(trim((string)$subItem->workLocation->name));
+                if ($subItem->workLocation->branch) {
+                    $subItem->workLocation->branch->name = strtoupper(trim((string)$subItem->workLocation->branch->name));
+                }
+            }
+            if (!empty($subItem->store_name)) {
+                $subItem->store_name = strtoupper(trim((string)$subItem->store_name));
+            }
+        }
 
         return [
             'submissions' => $submissions,

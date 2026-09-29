@@ -730,7 +730,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $p['name'] }}</div>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($p['name']) }}</div>
                                     <div style="font-size: 0.72rem; color: var(--text-muted);">{{ $p['sku'] }}</div>
                                 </td>
                                 <td class="num">{{ number_format($p['stok_awal'] ?? 0, 0, ',', '.') }}</td>
@@ -789,7 +789,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div style="font-weight: 700; color: var(--text-heading);">{{ $m['name'] }}</div>
+                                    <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($m['name']) }}</div>
                                     <div style="font-size: 0.72rem; color: var(--text-muted);">{{ count($m['stores'] ?? []) }} Toko Tercover</div>
                                 </td>
                                 <td><span style="font-weight: 600;">{{ $m['area'] }}</span></td>
@@ -1186,7 +1186,7 @@
                             </td>
                             <td>
                                 <div style="font-weight: 700; color: var(--text-heading);">
-                                    {{ $sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Mitra SPG' }}
+                                    {{ strtoupper($sub->employee ? ($sub->employee->full_name ?: $sub->employee->name) : 'Mitra SPG') }}
                                 </div>
                                 <div style="font-size: 0.72rem; color: var(--text-muted);">
                                     {{ $sub->employee?->employee_no ?? '-' }}
@@ -1194,7 +1194,7 @@
                             </td>
                             <td>
                                 <div style="font-weight: 600;">
-                                    {{ $sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: '-') }}
+                                    {{ strtoupper($sub->workLocation ? $sub->workLocation->name : ($sub->store_name ?: '-')) }}
                                 </div>
                             </td>
                             <td>
@@ -1296,10 +1296,10 @@
                                 </span>
                             </div>
                             <div class="portal-freetaste-photo-info">
-                                <div style="font-weight: 700; color: var(--text-heading); font-size: 0.82rem;">{{ $photo['product'] }}</div>
+                                <div style="font-weight: 700; color: var(--text-heading); font-size: 0.82rem;">{{ strtoupper($photo['product']) }}</div>
                                 <div class="portal-freetaste-photo-meta">
-                                    <div><i class="fa-solid fa-store"></i> {{ $photo['store'] }}</div>
-                                    <div><i class="fa-solid fa-user"></i> {{ $photo['mitra'] }} &bull; {{ $photo['date'] }}</div>
+                                    <div><i class="fa-solid fa-store"></i> {{ strtoupper($photo['store']) }}</div>
+                                    <div><i class="fa-solid fa-user"></i> {{ strtoupper($photo['mitra']) }} &bull; {{ $photo['date'] }}</div>
                                     @if(isset($photo['dimasak']) && $photo['dimasak'] > 0)
                                         <div style="margin-top: 0.25rem; font-weight: 700; color: var(--brand-primary);">
                                             Masak: {{ $photo['dimasak'] }} Pcs &bull; Cup: {{ $photo['cup'] }}
@@ -1598,7 +1598,7 @@
                                 <tr>
                                     <td style="color: var(--text-muted); font-weight: 700; text-align: center;">${i + 1}</td>
                                     <td>
-                                        <div style="font-weight: 800; color: var(--text-heading);">${item.name || item.product_name || 'Produk Mie Sedaap'}</div>
+                                        <div style="font-weight: 800; color: var(--text-heading);">${(item.name || item.product_name || 'Produk Mie Sedaap').toUpperCase()}</div>
                                         <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${item.sku_code || item.sku || '-'}</div>
                                     </td>
                                     <td class="num">${Number(item.stok_awal || 0).toLocaleString('id-ID')} Pcs</td>
@@ -1703,11 +1703,11 @@
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Petugas / Mitra</span>
-                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.employee?.full_name || sub.employee?.name || 'Petugas'}</div>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${(sub.employee?.full_name || sub.employee?.name || 'Petugas').toUpperCase()}</div>
                 </div>
                 <div>
                     <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Toko / Lokasi</span>
-                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${sub.work_location?.name || sub.store_name || '-'}</div>
+                    <div style="font-weight: 700; color: var(--text-heading); font-size: 0.9rem;">${(sub.work_location?.name || sub.store_name || '-').toUpperCase()}</div>
                 </div>
             </div>
 
@@ -1851,8 +1851,8 @@
                             ${list.length > 0 ? list.map((it, idx) => `
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
-                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${(it.mitra || '-').toUpperCase()}</td>
+                                    <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
                                     <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
                                     <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
@@ -1909,8 +1909,8 @@
                             ${list.length > 0 ? list.map((it, idx) => `
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">${it.product || '-'}</td>
-                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${(it.product || '-').toUpperCase()}</td>
+                                    <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
                                     <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
                                 </tr>
@@ -1967,9 +1967,9 @@
                             ${list.length > 0 ? list.map((it, idx) => `
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
-                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
-                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${(it.mitra || '-').toUpperCase()}</td>
+                                    <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${(it.product || '-').toUpperCase()}</td>
                                     <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
                                     <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
                                 </tr>
@@ -2027,10 +2027,10 @@
                             ${list.length > 0 ? list.map((it, idx) => `
                                 <tr>
                                     <td style="text-align: center; color: var(--text-muted); font-weight: 700;">${idx + 1}</td>
-                                    <td style="font-weight: 700; color: var(--text-heading);">${it.mitra || '-'}</td>
+                                    <td style="font-weight: 700; color: var(--text-heading);">${(it.mitra || '-').toUpperCase()}</td>
                                     <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
-                                    <td style="color: var(--text-heading);">${it.store || '-'}</td>
-                                    <td style="color: var(--brand-primary); font-weight: 600;">${it.product || '-'}</td>
+                                    <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
+                                    <td style="color: var(--brand-primary); font-weight: 600;">${(it.product || '-').toUpperCase()}</td>
                                     <td class="num" style="color: var(--brand-primary); font-weight: 700;">${Number(it.dimasak || 0).toLocaleString('id-ID')} Pcs</td>
                                     <td class="num" style="color: #059669; font-weight: 700;">${Number(it.cup || 0).toLocaleString('id-ID')} Cup</td>
                                 </tr>
