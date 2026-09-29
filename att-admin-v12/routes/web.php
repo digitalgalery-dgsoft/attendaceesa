@@ -811,4 +811,15 @@ Route::get('/account-deletion', function () {
     return view('delete_account');
 });
 
+// ==============================================================================
+// 🔄 GRACEFUL LIVEWIRE FALLBACKS
+// ==============================================================================
+Route::get('/livewire/update', function () {
+    return redirect('/admin');
+});
+
+Route::get('/livewire-{hash}/update', function () {
+    return redirect('/admin');
+})->where('hash', '[a-zA-Z0-9]+');
+
 

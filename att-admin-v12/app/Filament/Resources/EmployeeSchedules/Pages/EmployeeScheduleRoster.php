@@ -504,10 +504,19 @@ class EmployeeScheduleRoster extends Page implements HasForms
                             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                             'text/csv',
                             'application/csv',
+                            'text/plain',
+                            'application/octet-stream',
+                            'application/zip',
+                            'application/x-zip-compressed',
                         ]),
                 ])
                 ->action(function (array $data) {
-                    $attachment = $data['attachment'];
+                    @set_time_limit(300);
+                    @ini_set('memory_limit', '512M');
+
+                    $rawAttachment = $data['attachment'];
+                    $attachment = is_array($rawAttachment) ? reset($rawAttachment) : $rawAttachment;
+
                     if (Storage::disk('public')->exists($attachment)) {
                         $file = Storage::disk('public')->path($attachment);
                     } elseif (Storage::exists($attachment)) {
@@ -561,6 +570,13 @@ class EmployeeScheduleRoster extends Page implements HasForms
                             ->danger()
                             ->persistent()
                             ->send();
+                    } finally {
+                        try {
+                            if (Storage::disk('public')->exists($attachment)) {
+                                Storage::disk('public')->delete($attachment);
+                            }
+                        } catch (\Throwable $e) {
+                        }
                     }
                 }),
 

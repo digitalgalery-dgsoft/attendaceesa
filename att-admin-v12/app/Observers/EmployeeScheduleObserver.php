@@ -9,10 +9,18 @@ use Carbon\Carbon;
 class EmployeeScheduleObserver
 {
     /**
+     * Flag to globally enable or disable observer calculations during bulk imports.
+     */
+    public static bool $enabled = true;
+
+    /**
      * Handle the EmployeeSchedule "saved" event.
      */
     public function saved(EmployeeSchedule $schedule): void
     {
+        if (!static::$enabled) {
+            return;
+        }
         $this->syncWorkTarget($schedule);
     }
 
@@ -21,6 +29,9 @@ class EmployeeScheduleObserver
      */
     public function deleted(EmployeeSchedule $schedule): void
     {
+        if (!static::$enabled) {
+            return;
+        }
         $this->syncWorkTarget($schedule);
     }
 
@@ -35,8 +46,15 @@ class EmployeeScheduleObserver
         }
 
         $date = Carbon::parse($schedule->schedule_date);
+        static::syncForEmployeeAndPeriod($schedule->employee_id, $date);
+    }
 
-        $employee = $schedule->employee ?: \App\Models\Employee::with('department')->find($schedule->employee_id);
+    /**
+     * Static helper to compute and sync work target for a specific employee and period once.
+     */
+    public static function syncForEmployeeAndPeriod(int $employeeId, Carbon $date): void
+    {
+        $employee = \App\Models\Employee::with('department')->find($employeeId);
         if (!$employee) {
             return;
         }
@@ -62,14 +80,14 @@ class EmployeeScheduleObserver
         }
 
         // Count workday in this period for the employee
-        $targetHk = EmployeeSchedule::where('employee_id', $schedule->employee_id)
+        $targetHk = EmployeeSchedule::where('employee_id', $employeeId)
             ->whereBetween('schedule_date', [$start->toDateString(), $end->toDateString()])
             ->where('schedule_type', 'workday')
             ->count();
 
         WorkTarget::updateOrCreate(
             [
-                'employee_id' => $schedule->employee_id,
+                'employee_id' => $employeeId,
                 'month_year' => $monthYear,
             ],
             [
