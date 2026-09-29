@@ -2815,10 +2815,15 @@
                         </div>
                     @endif
                 @elseif($hasDynamicMbrSalesItems)
+                    @php
+                        $subCleanReportTitle = !empty($template->title)
+                            ? (str_starts_with($template->title, 'Laporan ') ? substr($template->title, 8) : $template->title)
+                            : 'Penjualan';
+                    @endphp
                     <div class="panel-header" style="border-bottom: 2px solid #fee2e2;">
                         <div class="panel-title">
                             <i class="fa-solid fa-cart-shopping" style="color: #dc2626;"></i>
-                            <span>Rincian Produk Penjualan Event MBR</span>
+                            <span>Rincian Produk {{ $subCleanReportTitle }}</span>
                         </div>
                         <span class="panel-count-badge" style="background: #fee2e2; color: #b91c1c; font-weight: 800;">
                             {{ count($mbrSalesItemsList) }} Produk Terjual

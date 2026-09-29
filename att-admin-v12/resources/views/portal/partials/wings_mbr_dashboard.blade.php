@@ -527,6 +527,14 @@
 </style>
 @endpush
 
+@php
+    $dashboardTemplateTitle = $template->title ?? ($template->name ?? '');
+    $cleanReportTitle = !empty($dashboardTemplateTitle)
+        ? (str_starts_with($dashboardTemplateTitle, 'Laporan ') ? substr($dashboardTemplateTitle, 8) : $dashboardTemplateTitle)
+        : 'Penjualan';
+    $trendSalesTitle = 'Tren ' . $cleanReportTitle;
+@endphp
+
 <div class="portal-mbr-wrapper">
 
     {{-- 2. KARTU METRIK KPI UTAMA (NATIVE PORTAL CARD STYLE) --}}
@@ -672,7 +680,7 @@
             <div>
                 <div class="portal-mbr-card-title">
                     <i class="fa-solid fa-chart-column"></i>
-                    <span>Tren Penjualan Produk Event MBR</span>
+                    <span>{{ $trendSalesTitle }}</span>
                 </div>
                 <div class="portal-mbr-card-sub">Grafik kuantiti penjualan aktual berdasarkan periode terpilih</div>
             </div>
@@ -1220,7 +1228,7 @@
         <div class="portal-mbr-modal-header">
             <div class="portal-mbr-modal-title">
                 <i class="fa-solid fa-images" style="color: var(--brand-primary);"></i>
-                <span id="galleryModalTitle">Galeri Dokumentasi Foto Penjualan Event MBR</span>
+                <span id="galleryModalTitle">Galeri Dokumentasi Foto {{ $cleanReportTitle }}</span>
             </div>
             <button type="button" class="portal-mbr-modal-close" onclick="closeGalleryModal()">
                 <i class="fa-solid fa-xmark"></i>
@@ -1411,7 +1419,7 @@
         if (filterType === 'struk') {
             if (titleEl) titleEl.innerText = 'Dokumentasi Foto Struk Penjualan Kasir';
         } else {
-            if (titleEl) titleEl.innerText = 'Galeri Dokumentasi Foto Penjualan Event MBR';
+            if (titleEl) titleEl.innerText = 'Galeri Dokumentasi Foto {{ addslashes($cleanReportTitle) }}';
         }
     }
 
