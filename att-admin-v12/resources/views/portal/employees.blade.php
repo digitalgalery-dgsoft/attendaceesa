@@ -360,7 +360,7 @@
                                     {{ strtoupper(substr($emp->full_name ?? 'E', 0, 1)) }}
                                 </div>
                             @endif
-                            <div style="font-weight: 700; color: var(--text-heading);">{{ $emp->full_name }}</div>
+                            <div style="font-weight: 800; color: var(--text-heading); text-transform: uppercase;">{{ strtoupper($emp->full_name) }}</div>
                         </div>
                     </td>
                     <td style="font-family: monospace; font-weight: 700;">{{ $emp->nik ?? '-' }}</td>

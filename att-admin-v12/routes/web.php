@@ -605,6 +605,7 @@ Route::middleware(['web'])->prefix('portal')->name('portal.')->group(function ()
     Route::get('/leaves', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'leavesList'])->name('leaves');
     Route::get('/extra-hours', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'extraHoursList'])->name('extra_hours');
     Route::get('/unchecked', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'uncheckedMonitoring'])->name('unchecked');
+    Route::get('/unchecked/export', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'exportUnchecked'])->name('unchecked.export');
 
     // Master Data Portal Routes
     Route::get('/employees', [\App\Http\Controllers\Portal\PrincipalPortalController::class, 'employeesList'])->name('employees');
