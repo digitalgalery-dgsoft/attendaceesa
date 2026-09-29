@@ -2518,3 +2518,20 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **Matriks Tim Belum Check-In (Prinsiple vs Area)**: Tabel pivot interaktif rows Prinsiple vs columns Area dengan cell badge angka yang dapat diklik untuk memfilter langsung detail karyawan di bawah, dilengkapi banner filter aktif matriks.
       - **Tabel Rincian Data Karyawan Belum Check-In**: Format kolom No, Nama Karyawan (Kapital & NIK), Jabatan, Prinsiple, Area, dan Tgl Tidak Check-In (7 Hari Terakhir) yang menyajikan chip badge tanggal (merah untuk hari ini, pink untuk hari sebelumnya) beserta subteks total hari & riwayat hadir terakhir.
       - **Ekspor CSV**: Rute dan ekspor data monitoring tim belum check-in (`portal.unchecked.export`).
+- [x] **Milestone 58: Peningkatan Fitur Portal Principal (Filter Searchable, Live Tracking GPS Rute Native, & Dinamisasi Laporan Penjualan Regular)** (Selesai 30 September 2026)
+    - **1. Filter Dropdown Searchable pada Presensi & Monitoring Belum Check-in**:
+      - Seluruh elemen dropdown filter (Wilayah / Area Cabang, Toko / Work Location, Mitra / Karyawan) pada halaman Presensi (`portal.attendances`) dan Monitoring Belum Check-in (`portal.unchecked`) diubah menjadi searchable dropdown kustom.
+      - Dilengkapi live filter input pencarian cepat, tombol clear/reset, highlight opsi aktif, serta auto-submit instan pada saat opsi dipilih tanpa perlu scroll panjang.
+      - Penanganan bug error variabel `$todayStr` pada blade presensi.
+    - **2. Peningkatan Ukuran Modal Rincian Presensi**:
+      - Memperbesar ukuran modal detail presensi dan aktivitas karyawan (`#attendanceDetailModal`) menjadi `max-width: 1200px` (desktop) dengan grid split 2 kolom (info rincian & timeline aktivitas berdampingan dengan embed peta Google Maps interaktif).
+    - **3. Halaman Live Tracking GPS Rute Native di Portal Principal**:
+      - Tombol "Lihat Live Tracking GPS" pada modal presensi sebelumnya membuka tautan eksternal Google Maps. Kini diperbarui membuka halaman rute interaktif native di Portal Principal (`portal.attendances.route` / `portal/tracking_history.blade.php`), identik dengan live tracking di Filament Dashboard Admin.
+      - Menampilkan peta Leaflet/OpenStreetMap dengan multi-polylines GPS rute perjalanan harian, start & end marker, titik transit/visit berkode warna, panel sidebar statistik rute (total jarak, titik tercatat, timeline kronologis), filter tanggal, serta kontrol interaktif peta.
+    - **4. Penyesuaian Judul Tren Penjualan & Modal Galeri Dinamis (Regular vs Event MBR)**:
+      - Memperbaiki judul grafik pada kartu Tren Penjualan di dashboard executive (`wings_mbr_dashboard.blade.php`) agar dinamis mengikuti template laporan yang sedang dibuka:
+        - Pada halaman **Laporan Penjualan (Regular)**: Judul otomatis berubah menjadi **`Tren Penjualan (Regular)`**.
+        - Pada halaman **Laporan Penjualan (Event MBR)**: Judul tetap **`Tren Penjualan (Event MBR)`**.
+      - Menyelaraskan judul modal galeri dokumentasi foto menjadi dinamis: `Galeri Dokumentasi Foto Penjualan (Regular)` / `Galeri Dokumentasi Foto Penjualan (Event MBR)`.
+      - Menyelaraskan panel rincian produk penjualan pada detail submisi laporan (`report_submission_detail.blade.php`) menjadi `Rincian Produk Penjualan (Regular)` / `Rincian Produk Penjualan (Event MBR)`.
+
