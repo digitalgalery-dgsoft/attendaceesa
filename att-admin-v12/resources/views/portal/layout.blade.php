@@ -740,16 +740,26 @@
             font-family: inherit;
         }
 
+        .searchable-select-wrap.is-open {
+            z-index: 1000;
+        }
+
+        .searchable-select-wrap.w-full,
+        .form-group-roster .searchable-select-wrap {
+            width: 100% !important;
+            display: block;
+        }
+
         .searchable-select-btn {
             display: inline-flex;
             align-items: center;
             justify-content: space-between;
             gap: 0.5rem;
             padding: 0.5rem 1.85rem 0.5rem 2.15rem;
-            background: #f8fafc;
-            border: 1px solid var(--border-color);
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
             border-radius: 8px;
-            font-size: 0.85rem;
+            font-size: 13px;
             font-weight: 600;
             color: var(--text-heading);
             cursor: pointer;
@@ -763,12 +773,12 @@
         }
 
         .searchable-select-btn.no-icon {
-            padding-left: 0.95rem;
+            padding-left: 0.85rem;
         }
 
         .searchable-select-btn:hover {
             background: #ffffff;
-            border-color: var(--border-hover);
+            border-color: #94a3b8;
         }
 
         .searchable-select-wrap.is-open .searchable-select-btn {
@@ -808,8 +818,8 @@
             position: absolute;
             top: calc(100% + 5px);
             left: 0;
-            min-width: 250px;
-            max-width: 420px;
+            min-width: 100%;
+            max-width: min(480px, calc(100vw - 32px));
             width: max-content;
             background: #ffffff;
             border: 1px solid var(--border-color);
@@ -901,7 +911,7 @@
 
         /* Options List */
         .searchable-select-list {
-            max-height: 240px;
+            max-height: 280px;
             overflow-y: auto;
             padding: 0.35rem;
             display: flex;
@@ -1971,7 +1981,19 @@
             wrap.className = 'searchable-select-wrap';
             if (selectEl.id) wrap.id = 'wrap_' + selectEl.id;
 
-            // Inherit max-width if specified on select
+            // Inherit width or max-width if specified on select or class
+            const inlineW = selectEl.style.width;
+            if (inlineW) {
+                wrap.style.width = inlineW;
+                if (inlineW === '100%') {
+                    wrap.style.display = 'block';
+                }
+            }
+            if (selectEl.classList.contains('form-control-roster') || selectEl.classList.contains('w-full') || selectEl.classList.contains('w-100')) {
+                wrap.style.width = '100%';
+                wrap.style.display = 'block';
+            }
+
             const inlineMaxW = selectEl.style.maxWidth;
             if (inlineMaxW) {
                 wrap.style.maxWidth = inlineMaxW;
@@ -2050,7 +2072,7 @@
 
             function updateButtonLabel() {
                 const selectedOpt = selectEl.selectedIndex >= 0 ? selectEl.options[selectEl.selectedIndex] : null;
-                labelSpan.textContent = selectedOpt ? selectedOpt.text : (selectEl.options[0]?.text || 'Pilih');
+                labelSpan.textContent = selectedOpt ? selectedOpt.text.trim() : (selectEl.options[0]?.text.trim() || 'Pilih');
                 labelSpan.title = labelSpan.textContent;
             }
 
@@ -2065,11 +2087,11 @@
                     item.className = 'searchable-select-item' + (opt.value === currentVal ? ' is-selected' : '');
                     item.setAttribute('data-value', opt.value);
                     item.setAttribute('data-index', idx);
-                    item.title = opt.text;
+                    item.title = opt.text.trim();
 
                     const textSpan = document.createElement('span');
                     textSpan.className = 'searchable-select-item-text';
-                    textSpan.textContent = opt.text;
+                    textSpan.textContent = opt.text.trim();
 
                     const checkIcon = document.createElement('i');
                     checkIcon.className = 'fa-solid fa-check searchable-select-item-check';

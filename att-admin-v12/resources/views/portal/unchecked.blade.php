@@ -319,7 +319,7 @@
                     {{-- Filter Prinsiple --}}
                     <div>
                         <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">Filter Prinsiple</label>
-                        <select name="principal_id" onchange="this.form.submit()" style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #0f172a; outline: none;">
+                        <select name="principal_id" class="searchable-filter-select" onchange="this.form.submit()" style="width: 100%;">
                             <option value="">-- Semua Prinsiple --</option>
                             @foreach ($allPrincipals as $p)
                                 <option value="{{ $p->id }}" {{ (string)$filterPrincipalId === (string)$p->id ? 'selected' : '' }}>
@@ -332,7 +332,7 @@
                     {{-- Filter Area / Cabang --}}
                     <div>
                         <label style="display: block; font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 6px;">Filter Area / Cabang</label>
-                        <select name="branch_id" onchange="this.form.submit()" style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #0f172a; outline: none;">
+                        <select name="branch_id" class="searchable-filter-select" onchange="this.form.submit()" style="width: 100%;">
                             <option value="">-- Semua Area / Cabang --</option>
                             @foreach ($allBranches as $b)
                                 <option value="{{ $b->id }}" {{ (string)$branchId === (string)$b->id ? 'selected' : '' }}>
@@ -350,7 +350,7 @@
                             name="q"
                             value="{{ $search }}"
                             placeholder="Ketik nama karyawan atau NIK..."
-                            style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #0f172a; outline: none;"
+                            style="width: 100%; padding: 8px 12px; font-size: 13px; border: 1px solid #cbd5e1; border-radius: 8px; background: #ffffff; color: #0f172a; outline: none; min-height: 38px; box-sizing: border-box;"
                         />
                     </div>
                 </div>

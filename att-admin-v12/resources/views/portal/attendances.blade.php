@@ -499,7 +499,7 @@
             {{-- 3. Region / Area --}}
             <div class="form-group-roster">
                 <label>Region / Area</label>
-                <select name="branch_id" class="form-control-roster">
+                <select name="branch_id" class="form-control-roster searchable-filter-select">
                     <option value="">Semua Region</option>
                     @foreach ($branches as $b)
                         <option value="{{ $b->id }}" {{ (string)$filterBranchId === (string)$b->id ? 'selected' : '' }}>
@@ -512,7 +512,7 @@
             {{-- 4. Prinsiple --}}
             <div class="form-group-roster">
                 <label>Prinsiple</label>
-                <select name="principal_id" class="form-control-roster">
+                <select name="principal_id" class="form-control-roster searchable-filter-select">
                     <option value="">Semua Prinsiple</option>
                     @foreach ($tenantPrincipalsAll as $p)
                         <option value="{{ $p->id }}" {{ (string)$filterPrincipalId === (string)$p->id ? 'selected' : '' }}>
@@ -525,7 +525,7 @@
             {{-- 5. Karyawan Spesifik --}}
             <div class="form-group-roster">
                 <label>Karyawan Spesifik</label>
-                <select name="employee_id" class="form-control-roster">
+                <select name="employee_id" class="form-control-roster searchable-filter-select">
                     <option value="">Semua Karyawan</option>
                     @foreach ($filterEmployees as $emp)
                         <option value="{{ $emp->id }}" {{ (string)$filterEmployeeId === (string)$emp->id ? 'selected' : '' }}>
