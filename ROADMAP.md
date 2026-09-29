@@ -2455,4 +2455,26 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Seluruh berkas view partial dan controller terverifikasi bersih dan valid.
       - Perubahan telah di-commit ke Git (`568cd00`), di-push ke branch `main`, dan disinkronkan ke Server Development (`appsend.my.id`) serta seluruh 3 node Production Cluster (`AMK`, `AKP`, `ATK`) dengan status aktif (HTTP 200).
 
+55. **Sinkronisasi Dinamis Nama Produk dari Master SKU & Standarisasi Huruf Kapital (UPPERCASE) Seluruh Laporan Wings MBR (29 September 2026)**:
+    - **Latar Belakang & Masukan Pengguna**:
+      - Nama produk di Master Produk (Katalog SKU) yang sudah di-edit (misal dari "MIE SEDAAP RAMEN YES HAKATA CHICKEN RAMEN" menjadi "MIE RAMEN YES HAKATA CHICKEN RAMEN") belum otomatis terupdate pada laporan transaksi historis karena tersimpan sebagai snapshot JSON pada tabel `report_submission_values`.
+      - Penulisan Nama Karyawan/Mitra, Nama Store/Toko/Outlet, dan Nama Produk pada seluruh halaman laporan Wings (Laporan Penjualan, Free Taste/Sampling, Tools Properti, dan Kunjungan Toko) diminta diseragamkan dalam format **HURUF KAPITAL SEMUA (UPPERCASE)**.
+    - **Implementasi & Solusi Teknis**:
+      - **Dynamic Real-Time Resolution (`PrincipalPortalController.php`)**:
+        - Menambahkan method helper `getMasterProductsLookup()` yang mem-preload dan mengindeks master produk aktif berdasarkan ID dan SKU bersih (`cleanSku`).
+        - Pada `calculateWingsMbrDashboardData` dan `calculateWingsMbrFreeTasteDashboardData`, nama produk dari cart items (`mbr_sales_items_json`, `mbr_freetaste_items_json`) secara dinamis di-resolve terhadap nama master produk terkini di memori dan diubah menjadi `strtoupper()`. Setiap ada update nama di Master Produk, tampilan seluruh laporan (KPI, grafik, top ranking, modal detail) langsung otomatis sinkron tanpa perlu mengedit ulang data transaksi.
+        - Memperbarui hook `updateProduct()` pada controller agar saat produk diupdate via portal master SKU ke depannya, record snapshot JSON di tabel `report_submission_values` ikut tersinkronisasi.
+      - **Standarisasi Format Huruf Kapital (UPPERCASE)**:
+        - **Nama Petugas / Mitra / SPG**: Diubah menjadi huruf kapital semua pada seluruh kartu KPI, leaderboard ranking, tabel submisi transaksi, modal detail submisi, dan modal drill-down breakdown di `wings_mbr_dashboard.blade.php`, `wings_mbr_freetaste_dashboard.blade.php`, `wings_mbr_tools_dashboard.blade.php`, `visit_reports.blade.php`, dan `report_detail.blade.php`.
+        - **Nama Toko / Store / Outlet**: Diubah menjadi huruf kapital semua pada daftar filter, tabel performa, tabel submisi, galeri foto, dan modal detail.
+        - **Nama Produk / SKU**: Diubah menjadi huruf kapital semua pada tabel peringkat produk terlaris, varian sampling, rincian keranjang belanja, breakdown wilayah/daerah, dan galeri foto.
+      - **Standarisasi Export Excel Multi-Sheet (`WingsMbrExportService.php`)**:
+        - Seluruh sheet ekspor raw data transaksi (Sheet 5 pada Penjualan, Free Taste, dan Tools) otomatis memformat nama petugas, nama toko, dan nama produk dalam format UPPERCASE.
+      - **Migrasi Database Historis (`2026_09_29_170000_sync_wings_mbr_product_names_and_uppercase_data.php`)**:
+        - Menyinkronkan seluruh data historis snapshot JSON dan field `store_name` yang tersimpan pada tabel database.
+    - **Verifikasi & Deployment**:
+      - Seluruh berkas PHP lulus uji linting (`php -l`) dengan 0 syntax error.
+      - Deployment pipeline berhasil dieksekusi: Graphify memory update (`graphify-out/graph.json`), push ke GitHub `main` (`2f01361`), deploy & health check Staging `appsend.my.id` (HTTP 200 OK), dan deploy ke seluruh 3 server Production (PT AMK, PT AKP, PT ATK) dengan status HTTP 200 OK.
+
+
 

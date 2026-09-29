@@ -1,7 +1,7 @@
 # Graph Report - New  (2026-09-29)
 
 ## Corpus Check
-- Large corpus: 1443 files · ~4,663,967 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
+- Large corpus: 1443 files · ~4,664,370 words. Semantic extraction will be expensive (many Claude tokens). Consider running on a subfolder.
 
 ## Summary
 - 13994 nodes · 33506 edges · 835 communities (282 shown, 553 thin omitted)
