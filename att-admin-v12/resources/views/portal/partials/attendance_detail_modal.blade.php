@@ -145,7 +145,7 @@
     @endif
 
     {{-- 3 Kartu Ringkasan Status, Shift & GPS Tracking (Sesuai Screenshot 4) --}}
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 16px;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-top: 16px;">
         
         {{-- Card 1: Status Kehadiran --}}
         <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); display: flex; flex-direction: column; justify-content: space-between;">
@@ -365,7 +365,7 @@
                         </div>
 
                         {{-- Layout 2 Kolom (Kiri: Alamat, Foto Thumbnail Kecil, Catatan | Kanan: Peta Embed) --}}
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; align-items: start;">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; align-items: stretch;">
                             
                             {{-- Kolom Kiri: Alamat, Koordinat, Catatan & Foto Thumbnail --}}
                             <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -425,20 +425,20 @@
                             </div>
 
                             {{-- Kolom Kanan: Peta Google Maps Embed --}}
-                            <div>
+                            <div style="height: 100%; min-height: 180px;">
                                 @if ($log->latitude && $log->longitude)
-                                    <div style="overflow: hidden; border-radius: 10px; border: 1px solid #e2e8f0; height: 165px; background: #f1f5f9;">
+                                    <div style="overflow: hidden; border-radius: 10px; border: 1px solid #e2e8f0; height: 100%; min-height: 180px; background: #f1f5f9;">
                                         <iframe 
                                             width="100%" 
                                             height="100%" 
-                                            style="border: 0; display: block;" 
+                                            style="border: 0; display: block; min-height: 180px;" 
                                             loading="lazy" 
                                             allowfullscreen 
                                             src="https://maps.google.com/maps?q={{ $log->latitude }},{{ $log->longitude }}&z=15&output=embed">
                                         </iframe>
                                     </div>
                                 @else
-                                    <div style="height: 165px; border-radius: 10px; border: 1px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8;">
+                                    <div style="height: 100%; min-height: 180px; border-radius: 10px; border: 1px dashed #cbd5e1; background: #f8fafc; display: flex; align-items: center; justify-content: center; font-size: 11px; color: #94a3b8;">
                                         Peta tidak tersedia
                                     </div>
                                 @endif

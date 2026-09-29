@@ -293,12 +293,12 @@
     .portal-modal-container {
         background: #ffffff;
         border-radius: 16px;
-        max-width: 820px;
-        width: 100%;
-        max-height: 90vh;
-        overflow-y: auto;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.08);
-        border: 1px solid #e2e8f0;
+        max-width: 1200px;
+        width: 95%;
+        max-height: 92vh;
+        overflow: hidden;
+        box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
+        border: 1px solid #cbd5e1;
         animation: modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         display: flex;
         flex-direction: column;
@@ -313,6 +313,8 @@
         justify-content: space-between;
         padding: 16px 24px;
         border-bottom: 1px solid #e2e8f0;
+        flex-shrink: 0;
+        background: #ffffff;
     }
     .portal-modal-close {
         background: none;
@@ -334,12 +336,26 @@
         overflow-y: auto;
         flex: 1;
     }
+    .portal-modal-body::-webkit-scrollbar {
+        width: 6px;
+    }
+    .portal-modal-body::-webkit-scrollbar-track {
+        background: #f8fafc;
+    }
+    .portal-modal-body::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 4px;
+    }
+    .portal-modal-body::-webkit-scrollbar-thumb:hover {
+        background: #94a3b8;
+    }
     .portal-modal-footer {
         padding: 14px 24px;
         border-top: 1px solid #e2e8f0;
         display: flex;
         justify-content: flex-start;
         background: #f8fafc;
+        flex-shrink: 0;
         border-bottom-left-radius: 16px;
         border-bottom-right-radius: 16px;
     }
