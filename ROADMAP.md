@@ -2500,17 +2500,21 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Dashboard Eksekutif Penjualan Wings otomatis aktif untuk Laporan Penjualan Regular (KPI kuantiti, omset, per-produk, per-area).
         - Ekspor Excel multi-sheet (5 sheet) otomatis aktif untuk Laporan Penjualan Regular.
         - Rincian submisi transaksi di portal menampilkan kartu rekapitulasi dan tabel produk secara konsisten.
-- [x] **Milestone 57: Revamp Tampilan Presensi & Monitoring Belum Check-in Portal Principal Selaras Admin Dashboard** (Selesai 30 September 2026)
+- [x] **Milestone 57: Revamp Tampilan Presensi (Attendance Roster) & Monitoring Belum Check-in Portal Principal Selaras Admin Dashboard** (Selesai 30 September 2026)
     - **Latar Belakang & Kebutuhan**:
-      - Tampilan halaman Presensi/Absensi dan Monitoring Belum Check-in pada Portal Principal diselaraskan dengan estetika dan kelengkapan fitur Dashboard Admin Filament.
-      - Penulisan nama karyawan diseragamkan seluruhnya menggunakan huruf kapital (UPPERCASE) di tabel, kartu data, dan berkas ekspor CSV.
-    - **Pembaruan Halaman Presensi / Absensi (`portal.attendances`)**:
-      - **KPI Cards**: Mengadopsi 4 kartu ringkasan eksekutif (Total Log Presensi, Hadir On-Time, Terlambat/Late, Izin/Cuti/Sakit) dengan ikon dan styling selaras admin dashboard.
-      - **Filter Lengkap**: Menambahkan filter Area/Cabang (`branch_id`), Toko/Outlet (`location_id`), Status Kehadiran (`status`), Rentang Tanggal Mulai & Akhir, Pencarian Nama/NIK, serta tombol Filter dan Reset.
-      - **Tabel Presensi**: Pro-bordered table dengan header `#f1f5f9`, border `#cbd5e1`, format nama karyawan kapital (`STRTOUPPER`), badge status presensi terstandar, dan link koordinat GPS langsung ke Google Maps.
-      - **Ekspor CSV**: Menyertakan parameter filter lengkap dan nama karyawan berformat kapital.
+      - Tampilan halaman Presensi/Absensi pada Portal Principal dibuat dalam bentuk **Matriks Kehadiran Harian (Attendance Roster)** kolom per tanggal dengan fitur interaktif modal detail presensi & aktivitas ketika cell tanggal diklik (persis seperti Admin Dashboard Filament).
+      - Halaman **Monitoring Tim Belum Check-in** pada Portal Principal dibuat persis dengan Admin Dashboard: menampilkan 4 KPI cards, Matriks Tim Belum Check-In (Prinsiple vs Area) interaktif, dan Tabel Rincian Data Karyawan dengan pill badges tanggal tidak hadir 7 hari terakhir.
+      - Seluruh penulisan nama karyawan diseragamkan dalam format **HURUF KAPITAL SEMUA (UPPERCASE)**.
+    - **Pembaruan Halaman Presensi / Attendance Roster (`portal.attendances`)**:
+      - **6 Kartu Ringkasan KPI**: Total Employee Aktif (dengan badge terjadwal), Total Hadir (On-Time), Total Telat, Total Cuti, Total Izin/Sakit, dan Total Alpha dengan kalkulasi sinkron dan evaluasi presensi.
+      - **Grand Total Formula Banner**: Ringkasan evaluasi formula status presensi dan tanggal sinkronisasi.
+      - **Filter Lengkap**: Rentang Tanggal Mulai & Akhir (hingga 31 hari), Region/Area, Prinsiple, Pencarian Karyawan Spesifik, serta catatan jam kerja departemen.
+      - **Matriks Kehadiran Harian (Roster Table)**: Tabel berpembatas rapi dengan sticky column Karyawan (avatar, nama kapital, NIK, jabatan & area), kolom harian tanggal dan hari (weekend beraksen merah), status cell (Hadir, Telat, Alpha, Cuti, Izin, Libur, Import) yang dapat diklik langsung.
+      - **Modal Interaktif Rincian Presensi & Aktivitas (`portal.attendances.modal`)**:
+        - Endpoint AJAX memuat data lengkap karyawan, status, durasi kerja, jadwal shift roster, live tracking GPS count, bukti foto selfie presensi thumbnail, link Google Maps, serta embed Google Maps lokasi check-in/out.
     - **Pembaruan Halaman Monitoring Belum Check-in (`portal.unchecked`)**:
-      - **4 Kartu Metrik KPI**: Menambahkan kartu metrik Belum Check-In 7 Hari, Belum Check-In Hari Ini, ≥ 3 Hari Tidak Hadir, dan Belum Pernah Hadir (identik dengan `TeamUncheckedMonitoring` admin).
-      - **Panel Filter & Status Cepat (Pill Buttons)**: Filter Area/Cabang, Toko Penempatan, Pencarian Karyawan/NIK/Toko/Jabatan, Tombol Reset, serta filter pills cepat (`Semua 7 Hari`, `Belum Check-In Hari Ini`, `≥ 3 Hari Tidak Hadir`, `Belum Pernah Hadir`) dengan counter dinamis.
-      - **Tabel Karyawan Belum Check-in**: Menyajikan rincian lengkap promotor belum check-in, toko penempatan, jadwal shift, jam masuk seharusnya, status hari terlewat/riwayat tidak hadir, badge real-time, dan nama kapital.
-      - **Ekspor CSV**: Menambahkan rute dan fitur ekspor CSV khusus data monitoring belum check-in (`portal.unchecked.export`).
+      - **4 Kartu Metrik KPI**: Belum Check-In (7 Hari), Belum Check-In Hari Ini, ≥ 3 Hari Tidak Hadir, dan Belum Pernah Hadir (identik dengan `TeamUncheckedMonitoring` admin).
+      - **Filter & Quick Status Pills**: Filter Prinsiple, Area/Cabang, Pencarian Karyawan/NIK/Jabatan, Tombol Reset, serta filter pills (`Semua 7 Hari`, `Belum Check-In Hari Ini`, `≥ 3 Hari Tidak Hadir`, `Belum Pernah Hadir`).
+      - **Matriks Tim Belum Check-In (Prinsiple vs Area)**: Tabel pivot interaktif rows Prinsiple vs columns Area dengan cell badge angka yang dapat diklik untuk memfilter langsung detail karyawan di bawah, dilengkapi banner filter aktif matriks.
+      - **Tabel Rincian Data Karyawan Belum Check-In**: Format kolom No, Nama Karyawan (Kapital & NIK), Jabatan, Prinsiple, Area, dan Tgl Tidak Check-In (7 Hari Terakhir) yang menyajikan chip badge tanggal (merah untuk hari ini, pink untuk hari sebelumnya) beserta subteks total hari & riwayat hadir terakhir.
+      - **Ekspor CSV**: Rute dan ekspor data monitoring tim belum check-in (`portal.unchecked.export`).

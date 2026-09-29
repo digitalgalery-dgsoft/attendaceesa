@@ -5273,88 +5273,494 @@ class PrincipalPortalController extends Controller
     }
 
     /**
-     * Presensi / Attendance Log
+     * Helper to check department working day
+     */
+    public static function isWorkingDay(Carbon $date, $deptWorkingDays): bool
+    {
+        $workingDays = null;
+        if (!empty($deptWorkingDays)) {
+            if (is_array($deptWorkingDays)) {
+                $workingDays = $deptWorkingDays;
+            } elseif (is_string($deptWorkingDays)) {
+                $decoded = json_decode($deptWorkingDays, true);
+                if (is_array($decoded)) {
+                    $workingDays = $decoded;
+                }
+            }
+        }
+
+        $dow = $date->dayOfWeek; // 0 = Sun, 1 = Mon, ..., 6 = Sat
+        $iso = $date->dayOfWeekIso; // 1 = Mon, ..., 7 = Sun
+
+        if (!empty($workingDays)) {
+            $normalized = array_map('strval', $workingDays);
+            return in_array(strval($dow), $normalized) || in_array(strval($iso), $normalized);
+        }
+
+        return in_array($dow, [1, 2, 3, 4, 5]);
+    }
+
+    /**
+     * Presensi / Attendance Roster Matriks Harian (Persis Dashboard Admin)
      */
     public function attendances(Request $request)
     {
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
 
+        @ini_set('memory_limit', '512M');
+
         $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
-        $startDate = $request->query('start_date') ? Carbon::parse($request->query('start_date'))->startOfDay() : Carbon::now()->startOfMonth();
-        $endDate = $request->query('end_date') ? Carbon::parse($request->query('end_date'))->endOfDay() : Carbon::now()->endOfMonth();
+        $startDate = $request->query('start_date') ? Carbon::parse($request->query('start_date'))->startOfDay() : Carbon::now()->startOfMonth()->startOfDay();
+        $endDate = $request->query('end_date') ? Carbon::parse($request->query('end_date'))->endOfDay() : Carbon::now()->endOfMonth()->endOfDay();
+
+        $daysInPeriod = $startDate->diffInDays($endDate) + 1;
+        if ($daysInPeriod > 31) {
+            $endDate = $startDate->copy()->addDays(30)->endOfDay();
+            $daysInPeriod = 31;
+        }
+
+        $startDateStr = $startDate->toDateString();
+        $endDateStr = $endDate->toDateString();
+        $todayStr = Carbon::today('Asia/Jakarta')->toDateString();
+
+        $holidays = DB::table('holidays')
+            ->whereBetween('holiday_date', [$startDateStr, $endDateStr])
+            ->pluck('holiday_date')
+            ->map(fn($d) => Carbon::parse($d)->toDateString())
+            ->toArray();
+        $holidayMap = array_flip($holidays);
+
         $search = $request->query('q');
-        $employeeId = $request->query('employee_id');
-        $branchId = $request->query('branch_id');
-        $locationId = $request->query('location_id');
-        $status = $request->query('status');
+        $filterBranchId = $request->query('branch_id');
+        $filterPrincipalId = $request->query('principal_id');
+        $filterEmployeeId = $request->query('employee_id');
+        $perPage = (int)$request->query('per_page', 25);
+        if (!in_array($perPage, [25, 50, 100])) {
+            $perPage = 25;
+        }
+        $currentPage = max(1, (int)$request->query('page', 1));
 
-        $query = Attendance::whereHas('employee', function ($q) use ($scopedPrincipalIds) {
-            $q->whereIn('employees.principal_id', $scopedPrincipalIds);
-        })->whereBetween('attendance_date', [$startDate->format('Y-m-d'), $endDate->format('Y-m-d')]);
+        // 1. Karyawan yang memiliki jadwal roster di periode ini
+        $schedEmpIds = DB::table('employee_schedules')
+            ->whereBetween('schedule_date', [$startDateStr, $endDateStr])
+            ->pluck('employee_id')
+            ->unique()
+            ->filter()
+            ->toArray();
+        $schedEmpSet = array_flip($schedEmpIds);
 
-        if ($search) {
-            $likeOp = DB::connection()->getDriverName() === 'pgsql' ? 'ILIKE' : 'LIKE';
-            $query->whereHas('employee', function ($q) use ($search, $likeOp) {
-                $q->where('full_name', $likeOp, "%{$search}%")
-                  ->orWhere('employee_no', $likeOp, "%{$search}%");
+        // 2. Query seluruh karyawan aktif
+        $employeeQuery = DB::table('employees')
+            ->leftJoin('positions', 'employees.position_id', '=', 'positions.id')
+            ->leftJoin('branches', 'employees.branch_id', '=', 'branches.id')
+            ->leftJoin('principals', 'employees.principal_id', '=', 'principals.id')
+            ->leftJoin('departments', 'employees.department_id', '=', 'departments.id')
+            ->where('employees.is_active', true)
+            ->whereNull('employees.deleted_at')
+            ->where(function($q) {
+                $q->whereNull('employees.employment_status')
+                  ->orWhere('employees.employment_status', '!=', 'resigned');
             });
+
+        if (!empty($filterPrincipalId)) {
+            $employeeQuery->where('employees.principal_id', $filterPrincipalId);
+        } else {
+            $employeeQuery->whereIn('employees.principal_id', $scopedPrincipalIds);
         }
-        if ($employeeId) {
-            $query->where('employee_id', $employeeId);
+
+        if (!empty($filterBranchId)) {
+            $employeeQuery->where('employees.branch_id', $filterBranchId);
         }
-        if ($branchId) {
-            $query->whereHas('employee', function ($q) use ($branchId) {
-                $q->where('branch_id', $branchId);
-            });
+
+        if (!empty($filterEmployeeId)) {
+            $employeeQuery->where('employees.id', $filterEmployeeId);
         }
-        if ($status) {
-            if ($status === 'present') {
-                $query->whereIn('status', ['present', 'on_time', 'hadir']);
-            } elseif ($status === 'late') {
-                $query->whereIn('status', ['late', 'terlambat']);
-            } elseif ($status === 'leave') {
-                $query->whereIn('status', ['leave', 'cuti', 'izin', 'sick', 'sakit']);
-            } else {
-                $query->where('status', $status);
+
+        $allEmployees = $employeeQuery->select([
+            'employees.id',
+            'employees.employee_no',
+            'employees.full_name',
+            'employees.photo',
+            'employees.department_id',
+            'departments.working_days as dept_working_days',
+            'positions.name as position_name',
+            'branches.name as branch_name',
+            'principals.name as principal_name',
+        ])->orderBy('employees.full_name')->get();
+
+        if (!empty(trim($search ?? ''))) {
+            $q = strtolower(trim($search));
+            $allEmployees = $allEmployees->filter(function ($emp) use ($q) {
+                return str_contains(strtolower($emp->full_name), $q)
+                    || str_contains(strtolower($emp->employee_no ?? ''), $q)
+                    || str_contains(strtolower($emp->branch_name ?? ''), $q)
+                    || str_contains(strtolower($emp->principal_name ?? ''), $q);
+            })->values();
+        }
+
+        $totalEmployeesCount = $allEmployees->count();
+        $totalPages = max(1, (int)ceil($totalEmployeesCount / $perPage));
+        if ($currentPage > $totalPages) $currentPage = $totalPages;
+        $offset = ($currentPage - 1) * $perPage;
+        $pagedEmployees = $allEmployees->slice($offset, $perPage)->values();
+        $pagedEmployeeIds = $pagedEmployees->pluck('id')->toArray();
+
+        // 3. Fetch attendances, schedules, and leaves for paged employees
+        $attendances = collect();
+        $schedules = collect();
+        $leaves = collect();
+
+        if (!empty($pagedEmployeeIds)) {
+            $attendances = DB::table('attendances')
+                ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('attendances.employee_id', $pagedEmployeeIds)
+                ->whereBetween('attendances.attendance_date', [$startDateStr, $endDateStr])
+                ->select([
+                    'attendances.id',
+                    'attendances.employee_id',
+                    'attendances.attendance_date',
+                    'attendances.status',
+                    'attendances.checkin_at',
+                    'attendances.checkout_at',
+                    'attendances.late_minutes',
+                    'attendances.is_manual_correction',
+                    'attendances.correction_note',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.grace_checkin_minutes',
+                    'employee_schedules.planned_start_at',
+                ])
+                ->get()
+                ->groupBy('employee_id');
+
+            $schedules = DB::table('employee_schedules')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('employee_schedules.employee_id', $pagedEmployeeIds)
+                ->whereBetween('employee_schedules.schedule_date', [$startDateStr, $endDateStr])
+                ->select([
+                    'employee_schedules.id',
+                    'employee_schedules.employee_id',
+                    'employee_schedules.schedule_date',
+                    'employee_schedules.schedule_type',
+                    'employee_schedules.planned_start_at',
+                    'shifts.name as shift_name',
+                    'shifts.code as shift_code',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.end_time as shift_end_time',
+                    'shifts.grace_checkin_minutes',
+                ])
+                ->get()
+                ->groupBy('employee_id');
+
+            $leaves = DB::table('leave_requests')
+                ->whereIn('employee_id', $pagedEmployeeIds)
+                ->whereIn('status', ['approved', 'pending'])
+                ->where(function ($q) use ($startDateStr, $endDateStr) {
+                    $q->whereBetween('start_date', [$startDateStr, $endDateStr])
+                      ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
+                      ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
+                          $sq->where('start_date', '<=', $startDateStr)
+                             ->where('end_date', '>=', $endDateStr);
+                      });
+                })
+                ->select(['id', 'employee_id', 'start_date', 'end_date', 'type', 'status', 'notes'])
+                ->get()
+                ->groupBy('employee_id');
+        }
+
+        // 4. Calculate KPI summaries across entire filtered dataset
+        $allEmpIds = $allEmployees->pluck('id')->toArray();
+        $now = Carbon::now('Asia/Jakarta');
+
+        $evalDate = $todayStr;
+        if ($startDateStr <= $todayStr && $todayStr <= $endDateStr) {
+            $evalDate = $todayStr;
+        } elseif ($todayStr > $endDateStr) {
+            $evalDate = $endDateStr;
+        } else {
+            $evalDate = $startDateStr;
+        }
+
+        if ($evalDate === $todayStr) {
+            $hasCheckinToday = DB::table('attendances')
+                ->where('attendance_date', $todayStr)
+                ->whereIn('employee_id', $allEmpIds)
+                ->whereNotNull('checkin_at')
+                ->exists();
+
+            if (!$hasCheckinToday && $now->hour < 8) {
+                $prevDate = Carbon::parse($todayStr)->subDay();
+                while ($prevDate->toDateString() >= $startDateStr) {
+                    $pStr = $prevDate->toDateString();
+                    if (!isset($holidayMap[$pStr]) && !$prevDate->isSunday()) {
+                        $evalDate = $pStr;
+                        break;
+                    }
+                    $prevDate->subDay();
+                }
             }
         }
-        if ($locationId) {
-            $query->where(function($q) use ($locationId) {
-                $q->whereHas('employeeSchedule', function ($sq) use ($locationId) {
-                    $sq->where('work_location_id', $locationId);
-                })->orWhereHas('employee', function ($eq) use ($locationId) {
-                    $eq->where('work_location_id', $locationId);
-                });
-            });
+
+        if (isset($holidayMap[$evalDate]) || Carbon::parse($evalDate)->isSunday()) {
+            $checkDate = Carbon::parse($evalDate)->subDay();
+            while ($checkDate->toDateString() >= $startDateStr) {
+                $cStr = $checkDate->toDateString();
+                if (!isset($holidayMap[$cStr]) && !$checkDate->isSunday()) {
+                    $evalDate = $cStr;
+                    break;
+                }
+                $checkDate->subDay();
+            }
         }
 
-        $stats = [
-            'total' => (clone $query)->count(),
-            'present' => (clone $query)->whereIn('status', ['present', 'on_time', 'hadir'])->count(),
-            'late' => (clone $query)->whereIn('status', ['late', 'terlambat'])->count(),
-            'leave' => (clone $query)->whereIn('status', ['leave', 'cuti', 'izin', 'sick', 'sakit'])->count(),
+        $totalOntime = 0;
+        $totalLate = 0;
+        $totalCuti = 0;
+        $totalPermitSick = 0;
+        $totalAlpha = 0;
+
+        if (!empty($allEmpIds)) {
+            $allAtts = DB::table('attendances')
+                ->leftJoin('employee_schedules', 'attendances.employee_schedule_id', '=', 'employee_schedules.id')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('attendances.employee_id', $allEmpIds)
+                ->whereBetween('attendances.attendance_date', [$startDateStr, $endDateStr])
+                ->select([
+                    'attendances.id',
+                    'attendances.employee_id',
+                    'attendances.status',
+                    'attendances.checkin_at',
+                    'attendances.attendance_date',
+                    'attendances.late_minutes',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.grace_checkin_minutes',
+                    'employee_schedules.planned_start_at',
+                ])
+                ->get()
+                ->groupBy('employee_id');
+
+            $allLeaves = DB::table('leave_requests')
+                ->whereIn('employee_id', $allEmpIds)
+                ->whereIn('status', ['approved', 'pending'])
+                ->where(function ($q) use ($startDateStr, $endDateStr) {
+                    $q->whereBetween('start_date', [$startDateStr, $endDateStr])
+                      ->orWhereBetween('end_date', [$startDateStr, $endDateStr])
+                      ->orWhere(function ($sq) use ($startDateStr, $endDateStr) {
+                          $sq->where('start_date', '<=', $startDateStr)
+                             ->where('end_date', '>=', $endDateStr);
+                      });
+                })
+                ->select(['employee_id', 'start_date', 'end_date', 'type', 'sub_type', 'status'])
+                ->get()
+                ->groupBy('employee_id');
+
+            $allScheds = DB::table('employee_schedules')
+                ->leftJoin('shifts', 'employee_schedules.shift_id', '=', 'shifts.id')
+                ->whereIn('employee_schedules.employee_id', $allEmpIds)
+                ->whereBetween('employee_schedules.schedule_date', [$startDateStr, $endDateStr])
+                ->select([
+                    'employee_schedules.employee_id',
+                    'employee_schedules.schedule_date',
+                    'employee_schedules.schedule_type',
+                    'employee_schedules.planned_start_at',
+                    'shifts.start_time as shift_start_time',
+                    'shifts.grace_checkin_minutes',
+                ])
+                ->get()
+                ->groupBy('employee_id');
+
+            foreach ($allEmployees as $emp) {
+                $empId = $emp->id;
+                $empAttList = $allAtts->get($empId) ?? collect();
+                $empLeaveList = $allLeaves->get($empId) ?? collect();
+                $empSchedList = $allScheds->get($empId) ?? collect();
+
+                $att = $empAttList->firstWhere('attendance_date', $evalDate);
+                if (!$att && $empAttList->isNotEmpty()) {
+                    $att = $empAttList->sortByDesc('attendance_date')->first();
+                }
+
+                $leaveItem = $empLeaveList->first(function ($l) use ($evalDate) {
+                    return $evalDate >= $l->start_date && $evalDate <= $l->end_date;
+                });
+                if (!$leaveItem && $empLeaveList->isNotEmpty()) {
+                    $leaveItem = $empLeaveList->sortByDesc('start_date')->first();
+                }
+
+                $sched = $empSchedList->firstWhere('schedule_date', $evalDate)
+                    ?? $empSchedList->sortByDesc('schedule_date')->first();
+
+                if ($att) {
+                    $attStatus = strtolower(trim($att->status ?? ''));
+                    if ($attStatus === 'absent') {
+                        $totalAlpha++;
+                        continue;
+                    }
+                    if (in_array($attStatus, ['cuti', 'leave', 'annual_leave'])) {
+                        $totalCuti++;
+                        continue;
+                    }
+                    if (in_array($attStatus, ['permit', 'sick', 'izin', 'ijin', 'sakit'])) {
+                        $totalPermitSick++;
+                        continue;
+                    }
+
+                    $isLate = false;
+                    if ($attStatus === 'late' || (int)($att->late_minutes ?? 0) > 0) {
+                        $isLate = true;
+                    } elseif (!empty($att->checkin_at)) {
+                        $checkin = Carbon::parse($att->checkin_at)->timezone('Asia/Jakarta');
+                        $shiftStartTime = $att->shift_start_time ?? ($sched->shift_start_time ?? null);
+                        $grace = (int)($att->grace_checkin_minutes ?? ($sched->grace_checkin_minutes ?? 0));
+                        $plannedStartAt = $att->planned_start_at ?? ($sched->planned_start_at ?? null);
+                        $attDate = $att->attendance_date ?? $evalDate;
+
+                        if (!empty($shiftStartTime)) {
+                            $shiftStart = Carbon::parse($attDate . ' ' . $shiftStartTime, 'Asia/Jakarta');
+                            if ($checkin->greaterThan($shiftStart->copy()->addMinutes($grace))) {
+                                $isLate = true;
+                            }
+                        } elseif (!empty($plannedStartAt)) {
+                            $plannedStart = Carbon::parse($plannedStartAt, 'Asia/Jakarta');
+                            if ($checkin->greaterThan($plannedStart)) {
+                                $isLate = true;
+                            }
+                        } else {
+                            $defaultStart = Carbon::parse($attDate . ' 08:30:00', 'Asia/Jakarta');
+                            if ($checkin->greaterThan($defaultStart)) {
+                                $isLate = true;
+                            }
+                        }
+                    }
+
+                    if ($isLate) {
+                        $totalLate++;
+                    } else {
+                        $totalOntime++;
+                    }
+                    continue;
+                }
+
+                if ($leaveItem) {
+                    $lType = strtolower(trim(($leaveItem->type ?? '') . ' ' . ($leaveItem->sub_type ?? '')));
+                    if (str_contains($lType, 'cuti') || str_contains($lType, 'annual') || str_contains($lType, 'extra_off') || str_contains($lType, 'leave')) {
+                        $totalCuti++;
+                    } else {
+                        $totalPermitSick++;
+                    }
+                    continue;
+                }
+
+                $totalAlpha++;
+            }
+        }
+
+        $totalScheduledEmployees = 0;
+        foreach ($allEmployees as $emp) {
+            if (isset($schedEmpSet[$emp->id])) {
+                $totalScheduledEmployees++;
+            }
+        }
+
+        $summary = [
+            'total_active_employees' => $totalEmployeesCount,
+            'total_scheduled_employees' => $totalScheduledEmployees,
+            'total_ontime' => $totalOntime,
+            'total_late' => $totalLate,
+            'total_cuti' => $totalCuti,
+            'total_permit_sick' => $totalPermitSick,
+            'total_alpha' => $totalAlpha,
+            'evaluation_date' => $evalDate,
         ];
 
-        $attendances = $query->with(['employee.branch', 'employee.position', 'checkinLog', 'checkoutLog', 'employeeSchedule.workLocation', 'employeeSchedule.shift'])
-            ->orderBy('attendance_date', 'desc')
-            ->orderBy('checkin_at', 'desc')
-            ->paginate(25);
+        $pagination = [
+            'page' => $currentPage,
+            'per_page' => $perPage,
+            'total_pages' => $totalPages,
+            'total_items' => $totalEmployeesCount,
+            'from' => $totalEmployeesCount > 0 ? $offset + 1 : 0,
+            'to' => min($offset + $perPage, $totalEmployeesCount),
+        ];
 
-        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)->orderBy('full_name')->get();
         $branches = Branch::whereIn('id', Employee::whereIn('principal_id', $scopedPrincipalIds)->whereNotNull('branch_id')->pluck('branch_id')->unique())->orderBy('name')->get();
         if ($branches->isEmpty()) {
             $branches = Branch::orderBy('name')->get();
         }
-        $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+
+        $filterEmployees = Employee::whereIn('principal_id', $scopedPrincipalIds)->orderBy('full_name')->get();
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
         return view('portal.attendances', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
-            'attendances', 'stats', 'startDate', 'endDate', 'search', 'employeeId',
-            'branchId', 'branches', 'locationId', 'status', 'employees', 'workLocations', 'setting'
+            'pagedEmployees', 'totalEmployeesCount', 'totalScheduledEmployees',
+            'attendances', 'schedules', 'leaves', 'holidayMap', 'daysInPeriod',
+            'startDate', 'endDate', 'summary', 'pagination', 'branches', 'filterEmployees',
+            'search', 'filterBranchId', 'filterPrincipalId', 'filterEmployeeId', 'perPage', 'setting'
+        ));
+    }
+
+    /**
+     * Detail Modal Presensi & Aktivitas (AJAX endpoint)
+     */
+    public function attendanceDetailModal(Request $request)
+    {
+        [$tenantPrincipal, $scopedPrincipalIds] = $this->resolveTenant($request);
+        if (!$tenantPrincipal) {
+            return response('<div style="padding: 24px; text-align: center; color: #dc2626;">Sesi tidak valid.</div>', 403);
+        }
+
+        $employeeId = (int)$request->query('employee_id');
+        $date = $request->query('date', Carbon::today('Asia/Jakarta')->toDateString());
+
+        $employee = Employee::whereIn('principal_id', $scopedPrincipalIds)
+            ->with(['department', 'position', 'branch', 'principal', 'company'])
+            ->find($employeeId);
+
+        if (!$employee) {
+            return response('<div style="padding: 30px; text-align: center; color: #64748b;">Karyawan tidak ditemukan atau berada di luar akses prinsiple ini.</div>', 404);
+        }
+
+        $attendance = Attendance::where('employee_id', $employeeId)
+            ->where('attendance_date', $date)
+            ->with(['employeeSchedule.workLocation.company', 'employeeSchedule.shift', 'checkinLog', 'checkoutLog'])
+            ->first();
+
+        $schedule = EmployeeSchedule::where('employee_id', $employeeId)
+            ->where('schedule_date', $date)
+            ->with(['workLocation.company', 'shift'])
+            ->first();
+
+        $leaveRequest = LeaveRequest::where('employee_id', $employeeId)
+            ->whereIn('status', ['approved', 'pending'])
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
+            ->first();
+
+        $logs = AttendanceLog::where('employee_id', $employeeId)
+            ->where(function($q) use ($attendance, $date) {
+                if ($attendance) {
+                    $q->where('attendance_id', $attendance->id);
+                }
+                $q->orWhereDate('logged_at', $date);
+            })
+            ->with(['itineraryItem.workLocation'])
+            ->orderBy('logged_at', 'asc')
+            ->get();
+
+        $trackingCount = \App\Models\TrackingHistory::where('employee_id', $employeeId)
+            ->where(function($q) use ($attendance, $date) {
+                if ($attendance) {
+                    $q->where('attendance_id', $attendance->id);
+                }
+                $q->orWhereDate('created_at', $date);
+            })
+            ->count();
+
+        return view('portal.partials.attendance_detail_modal', compact(
+            'employee', 'attendance', 'schedule', 'leaveRequest', 'logs', 'trackingCount', 'date', 'tenantPrincipal'
         ));
     }
 
@@ -6076,10 +6482,15 @@ class PrincipalPortalController extends Controller
     /**
      * Team Unchecked Monitoring
      */
+    /**
+     * Team Unchecked Monitoring (Persis Dashboard Admin)
+     */
     public function uncheckedMonitoring(Request $request)
     {
         [$tenantPrincipal, $scopedPrincipalIds, $tenantPrincipalsAll] = $this->resolveTenant($request);
         if (!$tenantPrincipal) return redirect('/');
+
+        @ini_set('memory_limit', '512M');
 
         $activeTemplates = $this->getActiveTemplates($scopedPrincipalIds, $tenantPrincipal);
 
@@ -6090,16 +6501,32 @@ class PrincipalPortalController extends Controller
 
         $search = $request->query('q');
         $branchId = $request->query('branch_id');
+        $filterPrincipalId = $request->query('principal_id');
         $locationId = $request->query('location_id');
-        $quickFilter = $request->query('filter', 'today'); // 'today', 'all', 'ge3', 'never'
+        $quickFilter = $request->query('filter', 'all'); // 'all', 'today', 'ge3', 'never'
+
+        // Matrix interactive cell filter
+        $selectedCellPrincipalId = $request->query('cell_p');
+        $selectedCellBranchId = $request->query('cell_b');
+        $selectedCellPrincipalName = null;
+        $selectedCellBranchName = null;
 
         // 1. Ambil seluruh karyawan aktif untuk tenant principal
-        $employees = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)
+        $empQuery = Employee::whereIn('employees.principal_id', $scopedPrincipalIds)
             ->where('employees.is_active', true)
-            ->with(['branch', 'position', 'workLocation'])
-            ->orderBy('full_name')
-            ->get();
+            ->whereNull('employees.deleted_at')
+            ->where(function($q) {
+                $q->whereNull('employees.employment_status')
+                  ->orWhere('employees.employment_status', '!=', 'resigned');
+            })
+            ->with(['branch', 'position', 'principal', 'company', 'workLocation'])
+            ->orderBy('full_name');
 
+        if (!empty($filterPrincipalId)) {
+            $empQuery->where('principal_id', $filterPrincipalId);
+        }
+
+        $employees = $empQuery->get();
         $employeeIds = $employees->pluck('id')->toArray();
 
         // 2. Presensi 7 hari terakhir
@@ -6119,14 +6546,7 @@ class PrincipalPortalController extends Controller
             ->get()
             ->groupBy('employee_id');
 
-        // 4. Jadwal hari ini
-        $todaySchedules = EmployeeSchedule::whereIn('employee_id', $employeeIds)
-            ->where('schedule_date', $todayStr)
-            ->with(['workLocation', 'shift'])
-            ->get()
-            ->keyBy('employee_id');
-
-        // 5. Presensi terakhir
+        // 4. Presensi terakhir
         $latestDates = Attendance::whereIn('employee_id', $employeeIds)
             ->whereNotNull('checkin_at')
             ->selectRaw('employee_id, MAX(attendance_date) as max_date')
@@ -6172,7 +6592,6 @@ class PrincipalPortalController extends Controller
             $missedCount = count($missedDatesRaw);
             $isTodayUnchecked = in_array($todayStr, $missedDatesRaw);
 
-            // Masukkan jika hari ini belum check-in atau pernah bolos dalam 7 hari
             if ($missedCount > 0 || $isTodayUnchecked) {
                 $lastAttDate = $latestDates->get($emp->id);
                 $daysSinceLast = -1;
@@ -6183,64 +6602,140 @@ class PrincipalPortalController extends Controller
                     $formattedLastAtt = Carbon::parse($lastAttDate)->translatedFormat('d M Y');
                 }
 
-                $sched = $todaySchedules->get($emp->id);
-                $storeName = $sched?->workLocation?->name ?? ($emp->workLocation?->name ?? 'Toko Default');
-                $shiftName = $sched?->shift?->name ?? 'Jam Flexible';
-                $shiftStartTime = $sched?->shift?->start_time ?? ($sched?->start_time ?? '08:00:00');
+                $missedDates = [];
+                foreach (array_reverse($missedDatesRaw) as $mStr) {
+                    $cDate = Carbon::parse($mStr);
+                    $missedDates[] = [
+                        'date_str' => $mStr,
+                        'is_today' => ($mStr === $todayStr),
+                        'formatted_date' => $cDate->translatedFormat('d M'),
+                        'day_name' => $cDate->translatedFormat('l'),
+                        'full_date' => $cDate->translatedFormat('d F Y'),
+                    ];
+                }
+
+                $principalName = $emp->principal?->name ?: ($emp->company?->name ?: ($tenantPrincipal->name ?? 'Prinsiple'));
+                $branchName = $emp->branch?->name ?: 'Tanpa Area';
 
                 $allUncheckedList->push([
                     'id' => $emp->id,
-                    'employee' => $emp,
                     'full_name' => strtoupper($emp->full_name ?? 'KARYAWAN'),
-                    'employee_no' => $emp->employee_no ?? '-',
+                    'photo' => $emp->photo,
+                    'employee_no' => $emp->employee_no ?? ($emp->nik ?? '-'),
                     'nik' => $emp->nik ?? ($emp->employee_no ?? '-'),
-                    'position_name' => $emp->position?->name ?? 'SPG',
-                    'branch_id' => $emp->branch_id,
-                    'branch_name' => $emp->branch?->name ?? '-',
-                    'work_location_id' => $sched?->work_location_id ?? $emp->work_location_id,
-                    'store_name' => $storeName,
-                    'shift_name' => $shiftName,
-                    'shift_start_time' => $shiftStartTime,
+                    'position_name' => $emp->position?->name ?? 'Staff',
+                    'principal_id' => $emp->principal_id ? (string)$emp->principal_id : (string)$tenantPrincipal->id,
+                    'principal_name' => $principalName,
+                    'branch_id' => $emp->branch_id ? (string)$emp->branch_id : '',
+                    'branch_name' => $branchName,
+                    'work_location_id' => $emp->work_location_id,
                     'is_today_unchecked' => $isTodayUnchecked,
                     'days_since_last' => $daysSinceLast,
                     'last_attendance_date' => $formattedLastAtt,
                     'missed_count_7days' => $missedCount,
+                    'missed_dates' => $missedDates,
                     'missed_dates_raw' => array_reverse($missedDatesRaw),
                 ]);
             }
         }
 
-        // Summary KPI Metrics
+        // 5. Build Pivot Matrix (Gambar 1 Admin): Rows = Prinsiple, Columns = Area/Branch
+        $distinctBranchIds = $employees->pluck('branch_id')->filter()->unique()->toArray();
+        $branchesQuery = Branch::whereIn('id', $distinctBranchIds)->orderBy('name');
+        if (!empty($branchId)) {
+            $branchesQuery->where('id', $branchId);
+        }
+        $branches = $branchesQuery->get(['id', 'name']);
+        if ($branches->isEmpty()) {
+            $branches = Branch::orderBy('name')->take(20)->get(['id', 'name']);
+        }
+
+        $matrixColumns = [];
+        foreach ($branches as $b) {
+            $matrixColumns[(string)$b->id] = $b->name;
+        }
+
+        $empPrincipalIds = $employees->pluck('principal_id')->filter()->unique()->toArray();
+        $principals = Principal::whereIn('id', !empty($filterPrincipalId) ? [$filterPrincipalId] : (!empty($empPrincipalIds) ? $empPrincipalIds : $scopedPrincipalIds))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+        if ($principals->isEmpty() && $tenantPrincipal) {
+            $principals = collect([$tenantPrincipal]);
+        }
+
+        $matrixRows = [];
+        $columnTotals = array_fill_keys(array_keys($matrixColumns), 0);
+        $matrixGrandTotal = 0;
+
+        foreach ($principals as $p) {
+            $rowBranches = array_fill_keys(array_keys($matrixColumns), 0);
+            $totalRow = 0;
+
+            foreach ($allUncheckedList as $item) {
+                if ((string)$item['principal_id'] === (string)$p->id) {
+                    $bId = (string)$item['branch_id'];
+                    if ($bId && isset($rowBranches[$bId])) {
+                        $rowBranches[$bId]++;
+                        $totalRow++;
+                    }
+                }
+            }
+
+            foreach ($rowBranches as $bId => $cnt) {
+                $columnTotals[$bId] += $cnt;
+            }
+            $matrixGrandTotal += $totalRow;
+
+            $matrixRows[] = [
+                'principal_id' => (string)$p->id,
+                'principal_name' => $p->name,
+                'branches' => $rowBranches,
+                'total_row' => $totalRow,
+            ];
+        }
+
+        $matrix = [
+            'columns' => $matrixColumns,
+            'rows' => $matrixRows,
+            'column_totals' => $columnTotals,
+            'grand_total' => $matrixGrandTotal,
+        ];
+
+        // 6. Summary 4 Top KPI Cards
         $summary = [
             'total_active' => $employees->count(),
             'total_unchecked_7days' => $allUncheckedList->count(),
             'today_unchecked_count' => $allUncheckedList->where('is_today_unchecked', true)->count(),
             'ge3_days_count' => $allUncheckedList->where('missed_count_7days', '>=', 3)->count(),
             'never_attended_count' => $allUncheckedList->where('days_since_last', -1)->count(),
-            'today_formatted' => $today->translatedFormat('l, d F Y'),
-            'seven_days_range' => $sevenDaysAgo->translatedFormat('d M') . ' - ' . $today->translatedFormat('d M Y'),
+            'today_formatted' => $today->translatedFormat('d F Y'),
+            'seven_days_range' => $sevenDaysAgo->translatedFormat('d M') . ' – ' . $today->translatedFormat('d M Y'),
         ];
 
-        // Filter list
+        // 7. Filter detail table
         $filteredList = $allUncheckedList;
 
-        if ($branchId) {
-            $filteredList = $filteredList->where('branch_id', $branchId);
+        // Apply interactive matrix cell filter if present
+        if (!empty($selectedCellPrincipalId)) {
+            $selectedCellPrincipalName = Principal::find($selectedCellPrincipalId)?->name;
+            $filteredList = $filteredList->where('principal_id', (string)$selectedCellPrincipalId);
+        }
+        if (!empty($selectedCellBranchId)) {
+            $selectedCellBranchName = Branch::find($selectedCellBranchId)?->name;
+            $filteredList = $filteredList->where('branch_id', (string)$selectedCellBranchId);
         }
 
-        if ($locationId) {
-            $filteredList = $filteredList->filter(function ($item) use ($locationId) {
-                return (string)($item['work_location_id'] ?? '') === (string)$locationId;
-            });
+        if (!empty($branchId) && empty($selectedCellBranchId)) {
+            $filteredList = $filteredList->where('branch_id', (string)$branchId);
         }
 
-        if ($search) {
-            $searchLower = strtolower($search);
+        if (!empty($search)) {
+            $searchLower = strtolower(trim($search));
             $filteredList = $filteredList->filter(function ($item) use ($searchLower) {
                 return str_contains(strtolower($item['full_name']), $searchLower)
                     || str_contains(strtolower($item['nik']), $searchLower)
                     || str_contains(strtolower($item['position_name']), $searchLower)
-                    || str_contains(strtolower($item['store_name']), $searchLower)
+                    || str_contains(strtolower($item['principal_name']), $searchLower)
                     || str_contains(strtolower($item['branch_name']), $searchLower);
             });
         }
@@ -6260,31 +6755,37 @@ class PrincipalPortalController extends Controller
             fn($a, $b) => strcmp($a['full_name'], $b['full_name']),
         ])->values();
 
-        // Pagination
-        $perPage = 25;
-        $currentPage = (int)$request->query('page', 1);
-        $pagedData = $sortedList->slice(($currentPage - 1) * $perPage, $perPage)->values();
-        $unchecked = new \Illuminate\Pagination\LengthAwarePaginator(
-            $pagedData,
-            $sortedList->count(),
-            $perPage,
-            $currentPage,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
+        // 8. Pagination for Detail Table
+        $perPage = (int)$request->query('per_page', 25);
+        if (!in_array($perPage, [25, 50, 100])) $perPage = 25;
+        $currentPage = max(1, (int)$request->query('page', 1));
+        $totalItems = $sortedList->count();
+        $totalPages = max(1, (int)ceil($totalItems / $perPage));
+        if ($currentPage > $totalPages) $currentPage = $totalPages;
+        $offset = ($currentPage - 1) * $perPage;
+        $pagedData = $sortedList->slice($offset, $perPage)->values();
 
-        $branches = Branch::whereIn('id', $employees->pluck('branch_id')->filter()->unique())->orderBy('name')->get();
-        if ($branches->isEmpty()) {
-            $branches = Branch::orderBy('name')->get();
-        }
-        $workLocations = WorkLocation::whereIn('principal_id', $scopedPrincipalIds)->orWhereNull('principal_id')->orderBy('name')->get();
+        $detailPagination = [
+            'items' => $pagedData,
+            'page' => $currentPage,
+            'per_page' => $perPage,
+            'total_count' => $totalItems,
+            'total_pages' => $totalPages,
+            'from' => $totalItems > 0 ? $offset + 1 : 0,
+            'to' => min($offset + $perPage, $totalItems),
+        ];
 
+        $allPrincipals = $principals;
+        $allBranches = $branches;
         $brandColor = $tenantPrincipal->theme_color ?? '#0F52BA';
         $setting = Setting::first();
 
         return view('portal.unchecked', compact(
             'tenantPrincipal', 'tenantPrincipalsAll', 'brandColor', 'activeTemplates',
-            'unchecked', 'summary', 'today', 'todayStr', 'search', 'branchId', 'branches',
-            'locationId', 'workLocations', 'quickFilter', 'setting'
+            'summary', 'matrix', 'detailPagination', 'allPrincipals', 'allBranches',
+            'today', 'todayStr', 'search', 'branchId', 'filterPrincipalId', 'quickFilter',
+            'selectedCellPrincipalId', 'selectedCellBranchId', 'selectedCellPrincipalName', 'selectedCellBranchName',
+            'perPage', 'setting'
         ));
     }
 
