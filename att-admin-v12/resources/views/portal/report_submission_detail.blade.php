@@ -1429,7 +1429,11 @@
             }
         }
 
-        $isWingsMbrSales = str_contains($template->code, 'WINGS-MBR-SALES') || str_contains($template->code, 'MBR-SALES');
+        $isWingsMbrSales = str_contains($template->code, 'WINGS-MBR-SALES')
+            || str_contains($template->code, 'MBR-SALES')
+            || str_contains($template->code, 'REGULAR-SALES')
+            || str_contains($template->code, 'SALES-REGULAR')
+            || (str_contains(strtolower($template->title ?? ''), 'penjualan') && (str_contains(strtolower($template->title ?? ''), 'mbr') || str_contains(strtolower($template->title ?? ''), 'regular')));
         $isMbrNoSellOut = (strcasecmp($mbrStatusPenjualan ?? '', 'No Sell Out') === 0) 
             || !empty($mbrAlasanNoSellOut) 
             || ($isWingsMbrSales && !$hasDynamicMbrSalesItems && $mbrGlobalData['total_qty_penjualan'] == 0);

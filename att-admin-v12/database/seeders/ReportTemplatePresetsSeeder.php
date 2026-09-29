@@ -1633,6 +1633,99 @@ class ReportTemplatePresetsSeeder extends Seeder
                     ],
                 ]
             ],
+            // 9. Laporan Penjualan (Regular) - Khusus PT WINGS SURYA (1 Produk 1 Submit, Tanpa Foto Sell Out)
+            [
+                'code' => 'RPT-WINGS-REGULAR-SALES-01',
+                'title' => 'Laporan Penjualan (Regular)',
+                'description' => 'Pencatatan transaksi penjualan produk reguler Wings Surya: 1 produk 1 submit laporan, harga toko, kuantiti, kalkulasi value, jenis pembayaran (tanpa foto sell out di akhir).',
+                'category' => 'offtake',
+                'report_group' => 'regular',
+                'icon' => 'cart-shopping',
+                'color' => '#D32F2F',
+                'require_gps' => true,
+                'require_signature' => false,
+                'is_active' => true,
+                'version' => 1,
+                'fields' => [
+                    [
+                        'field_label' => 'Status Penjualan',
+                        'field_name' => 'status_penjualan',
+                        'field_type' => 'radio',
+                        'options' => ['Pembayaran di booth', 'No Sell Out'],
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Alasan No Sell Out',
+                        'field_name' => 'alasan_no_sell_out',
+                        'field_type' => 'radio',
+                        'options' => ['Toko Tidak Mengijinkan', 'Barang OOS'],
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Keterangan No Sell Out',
+                        'field_name' => 'keterangan_no_sell_out',
+                        'field_type' => 'text',
+                        'placeholder' => 'Keterangan kendala jika ada...',
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Data Rincian Produk Penjualan (Cart JSON)',
+                        'field_name' => 'mbr_sales_items_json',
+                        'field_type' => 'text',
+                        'placeholder' => '[]',
+                        'is_required' => true,
+                    ],
+                    [
+                        'field_label' => 'Nama Produk',
+                        'field_name' => 'nama_produk',
+                        'field_type' => 'text',
+                        'placeholder' => 'Nama varian produk',
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Harga Toko (Rp)',
+                        'field_name' => 'harga_toko',
+                        'field_type' => 'currency',
+                        'placeholder' => 'Rp 0',
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Kuantiti Terjual',
+                        'field_name' => 'qty_penjualan',
+                        'field_type' => 'number',
+                        'placeholder' => '1',
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Total Kuantiti Terjual (Pcs)',
+                        'field_name' => 'total_qty_penjualan',
+                        'field_type' => 'number',
+                        'placeholder' => '0',
+                        'is_required' => true,
+                    ],
+                    [
+                        'field_label' => 'Total Nilai Penjualan (Rp)',
+                        'field_name' => 'total_value_penjualan_rp',
+                        'field_type' => 'currency',
+                        'placeholder' => 'Rp 0',
+                        'is_required' => true,
+                    ],
+                    [
+                        'field_label' => 'Total Penjualan Bayar di Booth (Rp)',
+                        'field_name' => 'total_bayar_di_booth_rp',
+                        'field_type' => 'currency',
+                        'placeholder' => 'Rp 0',
+                        'is_required' => false,
+                    ],
+                    [
+                        'field_label' => 'Total Penjualan Bayar di Kasir (Rp)',
+                        'field_name' => 'total_bayar_di_kasir_rp',
+                        'field_type' => 'currency',
+                        'placeholder' => 'Rp 0',
+                        'is_required' => false,
+                    ],
+                ]
+            ],
         ];
 
         $hasIconCol = \Illuminate\Support\Facades\Schema::hasColumn('report_templates', 'icon');

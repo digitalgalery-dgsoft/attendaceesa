@@ -152,12 +152,15 @@ class PrincipalPortalController extends Controller
             return 10;
         }
 
-        // Event MBR Wings
+        // Event MBR & Regular Sales Wings
         if (str_contains($code, 'MBR-SALES') || (str_contains($title, 'mbr') && str_contains($title, 'penjualan'))) {
             return 11;
         }
-        if (str_contains($code, 'MBR-FREETASTE') || str_contains($code, 'SAMPLING') || (str_contains($title, 'mbr') && (str_contains($title, 'free taste') || str_contains($title, 'sampling')))) {
+        if (str_contains($code, 'REGULAR-SALES') || str_contains($code, 'SALES-REGULAR') || (str_contains($title, 'regular') && str_contains($title, 'penjualan'))) {
             return 12;
+        }
+        if (str_contains($code, 'MBR-FREETASTE') || str_contains($code, 'SAMPLING') || (str_contains($title, 'mbr') && (str_contains($title, 'free taste') || str_contains($title, 'sampling')))) {
+            return 13;
         }
 
         // 2. Stok End (must check before generic stock / oos)
@@ -935,7 +938,9 @@ class PrincipalPortalController extends Controller
         $isCustomerDbReport       = ($template->code === 'RPT-DULUX-DATABASE-PELANGGAN' || str_contains($template->code, 'PELANGGAN'));
         $isWingsMbrSalesReport    = ($template->code === 'RPT-WINGS-MBR-SALES-01'
             || str_contains($template->code, 'MBR-SALES')
-            || (str_contains(strtolower($template->title ?? ''), 'mbr') && str_contains(strtolower($template->title ?? ''), 'penjualan')));
+            || str_contains($template->code, 'REGULAR-SALES')
+            || str_contains($template->code, 'SALES-REGULAR')
+            || (str_contains(strtolower($template->title ?? ''), 'penjualan') && (str_contains(strtolower($template->title ?? ''), 'mbr') || str_contains(strtolower($template->title ?? ''), 'regular'))));
 
         $isWingsMbrFreeTasteReport = ($template->code === 'RPT-WINGS-MBR-FREETASTE-01'
             || str_contains($template->code, 'MBR-FREETASTE')
@@ -2961,7 +2966,9 @@ class PrincipalPortalController extends Controller
         // --- WINGS MBR MULTI-SHEET PROFESSIONAL EXCEL EXPORTS ---
         $isWingsMbrSalesReport = ($template->code === 'RPT-WINGS-MBR-SALES-01'
             || str_contains($template->code, 'MBR-SALES')
-            || (str_contains(strtolower($template->title ?? ''), 'mbr') && str_contains(strtolower($template->title ?? ''), 'penjualan')));
+            || str_contains($template->code, 'REGULAR-SALES')
+            || str_contains($template->code, 'SALES-REGULAR')
+            || (str_contains(strtolower($template->title ?? ''), 'penjualan') && (str_contains(strtolower($template->title ?? ''), 'mbr') || str_contains(strtolower($template->title ?? ''), 'regular'))));
 
         $isWingsMbrFreeTasteReport = ($template->code === 'RPT-WINGS-MBR-FREETASTE-01'
             || str_contains($template->code, 'MBR-FREETASTE')

@@ -2476,5 +2476,29 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - Seluruh berkas PHP lulus uji linting (`php -l`) dengan 0 syntax error.
       - Deployment pipeline berhasil dieksekusi: Graphify memory update (`graphify-out/graph.json`), push ke GitHub `main` (`2f01361`), deploy & health check Staging `appsend.my.id` (HTTP 200 OK), dan deploy ke seluruh 3 server Production (PT AMK, PT AKP, PT ATK) dengan status HTTP 200 OK.
 
+56. **Penambahan Jenis Laporan Baru: Laporan Penjualan (Regular) Wings Surya (30 September 2026)**:
+    - **Latar Belakang & Kebutuhan Bisnis**:
+      - Mitra dan sales promotion PT Wings Surya membutuhkan jenis pelaporan baru untuk operasional reguler: **Laporan Penjualan (Regular)**.
+      - Tata letak form mengikuti standarisasi Laporan Penjualan (Event MBR), dengan penyesuaian khusus:
+        1. **1 Produk 1 Submit Laporan**: Transaksi dilaporkan langsung per-produk tanpa sistem akumulasi multi-produk (cart batch).
+        2. **Tanpa Foto Sell Out di Akhir**: Alur lebih ringkas dan cepat tanpa kewajiban melampirkan foto display/booth sell out di akhir laporan.
+    - **Implementasi Mobile App (`dynamic_form_screen.dart`)**:
+      - Menambahkan helper `_isWingsRegularSalesTemplate()` untuk mendeteksi kode `RPT-WINGS-REGULAR-SALES-01` dan varian judul Laporan Penjualan Regular.
+      - Memasukkan pengecualian pada `_hasProductBinding()` agar tidak terkunci pada sistem sekuensial produk umum.
+      - Mengembangkan antarmuka khusus `_buildWingsRegularSalesScaffold()`:
+        - Mode **Ada Penjualan**: Pemilihan 1 produk dari Master Produk Mie Sedaap via bottom sheet pencarian, input Harga Toko (Rp), Qty Penjualan (Dus/Pcs), live calculation Value Total (Rp), banner informasi "1 Produk 1 Submit Laporan", dan tombol submit langsung "Kirim Laporan Penjualan (Regular)".
+        - Mode **No Sell Out**: Menyediakan pilihan radio alasan kendala ("Toko Tidak Mengijinkan" & "Barang OOS"), catatan kendala, dan tombol submit instan No Sell Out.
+      - Mengembangkan handler `_submitWingsRegularSales()` yang menyusun payload JSON rapi (`mbr_sales_items_json` 1 item), field kuantiti & value, auto-approval tanpa foto sell out toko, serta auto-reset form setelah sukses submit agar siap untuk produk berikutnya.
+    - **Implementasi Backend & Portal Dashboard**:
+      - **Migrasi Database (`2026_09_30_100000_seed_wings_regular_sales_report_template.php`)**: Membuat template `RPT-WINGS-REGULAR-SALES-01`, kategori `offtake`, grup `regular`, warna `#D32F2F`, serta menghubungkannya ke Principal Wings Surya dan seluruh master produk aktif.
+      - **Preset Seeder (`ReportTemplatePresetsSeeder.php`)**: Mendaftarkan template Laporan Penjualan (Regular) pada seeder master template.
+      - **Backend API (`ReportingApiController.php`)**:
+        - Memperbarui pengecekan template sales Wings agar menangani `RPT-WINGS-REGULAR-SALES-01` secara setara dengan format MBR.
+        - Menambahkan field pembeda (`nama_produk`, `product_name`, `sku_produk`, `sku_code`, `mbr_sales_items_json`) pada mekanisme idempotency agar submit produk berbeda secara berturut-turut dalam 10 detik tidak dianggap duplikat.
+      - **Portal Principal (`PrincipalPortalController.php` & `report_submission_detail.blade.php`)**:
+        - Dashboard Eksekutif Penjualan Wings otomatis aktif untuk Laporan Penjualan Regular (KPI kuantiti, omset, per-produk, per-area).
+        - Ekspor Excel multi-sheet (5 sheet) otomatis aktif untuk Laporan Penjualan Regular.
+        - Rincian submisi transaksi di portal menampilkan kartu rekapitulasi dan tabel produk secara konsisten.
+
 
 

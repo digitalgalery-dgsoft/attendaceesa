@@ -924,6 +924,11 @@ class ReportingApiController extends Controller
 
                 $discriminatorFields = [
                     'nama_tools',
+                    'nama_produk',
+                    'product_name',
+                    'sku_produk',
+                    'sku_code',
+                    'mbr_sales_items_json',
                     'tipe_mesin_post',
                     'tipe_mesin',
                     'produk_terjual',
@@ -1569,7 +1574,9 @@ class ReportingApiController extends Controller
             }
 
             $isWingsMbrSalesTemplate = ($template->code === 'RPT-WINGS-MBR-SALES-01' || Str::contains($template->code, 'MBR-SALES') || (stripos($template->title, 'mbr') !== false && stripos($template->title, 'penjualan') !== false));
-            $isMbrSalesWithItems = $isWingsMbrSalesTemplate && !empty($mbrSalesItems);
+            $isWingsRegularSalesTemplate = ($template->code === 'RPT-WINGS-REGULAR-SALES-01' || Str::contains($template->code, 'REGULAR-SALES') || Str::contains($template->code, 'SALES-REGULAR') || (stripos($template->title, 'regular') !== false && stripos($template->title, 'penjualan') !== false));
+            $isWingsSalesTemplate = $isWingsMbrSalesTemplate || $isWingsRegularSalesTemplate;
+            $isMbrSalesWithItems = $isWingsSalesTemplate && !empty($mbrSalesItems);
 
             // Cek apakah ini template Wings MBR Free Taste dengan cart multi-produk
             $mbrFreeTasteItems = [];
@@ -1775,7 +1782,7 @@ class ReportingApiController extends Controller
 
                 return response()->json([
                     'status' => 'success',
-                    'message' => 'Laporan Penjualan Event MBR (' . count($mbrSalesItems) . ' produk) berhasil dikirim.',
+                    'message' => ($isWingsRegularSalesTemplate ? 'Laporan Penjualan Regular' : 'Laporan Penjualan Event MBR') . ' (' . count($mbrSalesItems) . ' produk) berhasil dikirim.',
                     'data' => [
                         'id' => $sub->id,
                         'submission_code' => $sub->submission_code,
