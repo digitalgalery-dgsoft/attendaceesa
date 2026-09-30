@@ -34,6 +34,8 @@ class WorkLocationsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->recordUrl(null)
+            ->recordAction(null)
             ->columns([
                 TextColumn::make('code')
                     ->label('Code')
