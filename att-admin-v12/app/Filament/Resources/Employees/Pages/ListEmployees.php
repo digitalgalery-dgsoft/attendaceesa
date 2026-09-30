@@ -19,6 +19,7 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Table;
 use Illuminate\Support\HtmlString;
 
 class ListEmployees extends ListRecords
@@ -272,5 +273,12 @@ class ListEmployees extends ListRecords
                 ->importer(\App\Filament\Imports\EmployeeImporter::class),
             CreateAction::make(),
         ];
+    }
+
+    public function table(Table $table): Table
+    {
+        return parent::table($table)
+            ->recordUrl(null)
+            ->recordAction(null);
     }
 }

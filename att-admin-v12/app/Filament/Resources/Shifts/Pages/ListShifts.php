@@ -10,6 +10,7 @@ use Filament\Actions\CreateAction;
 use Filament\Forms\Components\FileUpload;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ListRecords;
+use Filament\Tables\Table;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -114,5 +115,12 @@ class ListShifts extends ListRecords
 
             CreateAction::make(),
         ];
+    }
+
+    public function table(Table $table): Table
+    {
+        return parent::table($table)
+            ->recordUrl(null)
+            ->recordAction(null);
     }
 }
