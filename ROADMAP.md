@@ -2572,7 +2572,59 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **3. Hook Model & Halaman Form (`WorkLocation.php`, `CreateWorkLocation.php`, `EditWorkLocation.php`)**:
         - Memperbarui `fillCoordsFromGmaps` pada modal ekstraksi Google Maps agar langsung menyinkronkan zona waktu ke form.
         - Memperbarui `mutateFormDataBeforeCreate` dan `mutateFormDataBeforeSave` agar memastikan data timezone yang disimpan ke database selalu akurat.
-        - Memperbarui event Eloquent `static::saving(...)` pada model `WorkLocation` agar lokasi yang dibuat atau diupdate otomatis memiliki timezone yang benar.
+- [x] **Milestone 61: Pemisahan Akses Login (Admin Dashboard vs Portal Prinsiple) & Redirection Whitelabel Login** (Selesai 30 September 2026)
+    - **Latar Belakang & Masalah**:
+      - Pengguna dengan akun internal (seperti AS/AE Inhouse atau Admin) yang juga dikaitkan dengan Prinsiple tertentu untuk monitoring sering kali secara keliru diarahkan ke Portal Prinsiple (`/portal`) alih-alih Dashboard Admin (`/admin`), atau sebaliknya PIC Prinsiple murni bisa masuk ke Admin Dashboard jika memiliki tautan admin.
+    - **Solusi & Implementasi**:
+      - **1. Kolom Database `login_destination` (`users` table)**:
+        - Membuat migrasi `2026_09_30_150000_add_login_destination_to_users_table.php` yang menambahkan kolom `login_destination` (`admin` atau `portal`).
+      - **2. Penyesuaian Model User (`User.php`) & Form User (`UserForm.php`)**:
+        - Menambahkan dropdown field `login_destination` pada form pembuatan/edit akun user di Filament.
+        - Memperbarui `isPrincipalUser()` agar memprioritaskan nilai eksplisit `login_destination`, serta memastikan role internal (`AS / AE Inhouse`, `AS`, `AE`, `Admin`, `HR`, `Manager`) tidak pernah dianggap client.
+      - **3. Tabel Daftar User (`UsersTable.php`)**:
+        - Menambahkan kolom badge **"Akses Login"** (`Dashboard Admin` warna primary, `Portal Prinsiple` warna warning) agar terlihat jelas tujuan login masing-masing akun.
+      - **4. Redirection Login Controller (`TenantAuthController.php`)**:
+        - Memperbarui `showLoginForm()` dan `login()` agar selalu memeriksa `login_destination`. Jika disetel ke `admin`, user otomatis diarahkan ke `/admin` meskipun login melalui halaman login tenant whitelabel.
+      - **5. Tombol Pintas di Portal Sidebar (`layout.blade.php`)**:
+        - Menambahkan tombol menu cepat **"Dashboard Admin"** pada bagian *Akses Cepat* di sidebar Portal Prinsiple bagi akun internal / AS, sehingga user dapat berpindah ke Dashboard Admin dengan 1 klik.
+- [x] **Milestone 62: Penonaktifan Klik Baris (Row Click Navigation) pada Master Work Location, Master Employee, dan Master Shift** (Selesai 30 September 2026)
+    - **Latar Belakang & Masalah**:
+      - Pada halaman Master Shift, Master Employee, dan Master Work Location, mengklik baris mana saja pada tabel langsung membuka halaman edit/detail. Hal ini menyulitkan pengguna saat ingin memilih/menyeleksi teks (highlight) untuk disalin (copy) seperti NIK, Nama Karyawan, Kode Shift, Jam Kerja, Alamat Toko, Koordinat, dsb.
+      - Di Filament, method bawaan `ListRecords::table()` secara otomatis menetapkan `recordAction` ke aksi `'edit'` setelah konfigurasi Resource dieksekusi, sehingga baris tabel dibungkus ke dalam elemen `<button wire:click="edit">` meskipun `recordUrl` di tabel sudah diatur null.
+    - **Solusi & Implementasi**:
+      - **1. Override Method Table di Level List Page**:
+        - Meng-override method `table(Table $table): Table` pada:
+          - `ListWorkLocations.php` (`app/Filament/Resources/WorkLocations/Pages/ListWorkLocations.php`)
+          - `ListEmployees.php` (`app/Filament/Resources/Employees/Pages/ListEmployees.php`)
+          - `ListShifts.php` (`app/Filament/Resources/Shifts/Pages/ListShifts.php`)
+        - Menjalankan `parent::table($table)->recordUrl(null)->recordAction(null);` sehingga menghapus setelan default `edit` dari `ListRecords` secara tuntas.
+      - **2. Konfigurasi Tabel Resource (`WorkLocationsTable.php`, `EmployeesTable.php`, `ShiftsTable.php`)**:
+        - Menerapkan `->recordUrl(null)->recordAction(null)` pada table schema.
+        - Memastikan tombol aksi **Edit** tetap tersedia di kolom aksi sisi kanan baris untuk navigasi ke formulir edit/detail.
+      - **3. Hasil Akhir**: Baris tabel kini murni elemen `<div>` standar tanpa aksi klik, teks dapat diseleksi dan di-copy (`Ctrl+C`) dengan leluasa.
+- [x] **Milestone 63: Pembatasan Hak Akses Master Shift Berdasarkan Prinsiple (Principle Access Scoping untuk Non-Administrator)** (Selesai 30 September 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Pengguna meminta agar di halaman Master Shift (`/admin/shifts`), user dengan Role Akses selain Administrator (seperti Principal PIC, Client, AS/AE Inhouse, dsb.) hanya dapat melihat, memfilter, dan mengelola shift kerja yang sesuai dengan prinsiple yang ditugaskan kepada mereka saja.
+      - Sebelumnya, `ShiftResource` tidak mengimplementasikan `getEloquentQuery()` scoping, sehingga seluruh daftar shift dari seluruh prinsiple/klien tampil secara terbuka ke semua pengguna yang memiliki izin akses menu shift.
+    - **Solusi & Implementasi**:
+      - **1. Helper Cerdas Hak Akses Administrator & Resolusi Prinsiple (`User.php`)**:
+        - Menambahkan method `isAdministrator(): bool` pada model `User` yang memverifikasi peran administrator (`Super Admin`, `super_admin`, `Administrator`, `Admin`, `admin`, atau peran yang mengandung kata 'admin').
+        - Memperbarui `hasPrincipalRestriction()` dan `getAccessiblePrincipalIds()` agar mengecualikan Administrator, membaca relasi `principals`, serta mendukung fallback ke `employee->principal_id` secara terpadu.
+      - **2. Query Scope Otomatis pada Model Shift (`Shift.php`)**:
+        - Menambahkan local scope `scopeForUser(Builder $query, ?User $user = null): Builder` pada model `Shift`.
+        - Administrator mendapatkan seluruh shift, sedangkan non-administrator dibatasi secara ketat hanya pada shift dengan `shifts.principal_id` yang sesuai dengan prinsiple yang di-handle user. Jika user non-admin belum memiliki prinsiple yang terdaftar, query diproteksi (`1 = 0`) agar tidak membocorkan shift milik prinsiple lain.
+      - **3. Scoping Query & Otorisasi Record Resource (`ShiftResource.php`)**:
+        - Menambahkan `getEloquentQuery(): Builder` yang menerapkan query scoping `parent::getEloquentQuery()->forUser()`.
+        - Memperbarui `canViewAny()` agar mendukung role administrator maupun permission `view_shifts`.
+        - Menambahkan proteksi ganda pada aksi record `canEdit()` dan `canDelete()` untuk memverifikasi kecocokan `record->principal_id` dengan prinsiple yang diakses user.
+      - **4. Penyelarasan Filter Tabel & Formulir Input Shift (`ShiftsTable.php` & `ShiftForm.php`)**:
+        - Memperbarui dropdown filter `SelectFilter::make('principal_id')` pada tabel daftar shift agar hanya menyajikan daftar prinsiple yang berhak diakses oleh user non-administrator.
+        - Memperbarui field `Select::make('principal_id')` pada formulir Create/Edit shift agar opsinya dibatasi pada prinsiple user, serta otomatis memilih (*pre-select default*) prinsiple terkait jika user hanya mengelola 1 prinsiple.
+      - **5. Pengamanan Import & Template Ekspor Shift (`ShiftImport.php` & `ShiftTemplateExport.php`)**:
+        - Memperbarui `ShiftImport` agar memvalidasi baris Excel terhadap `accessiblePrincipalIds` dan menetapkan default prinsiple user pada baris yang tidak mencantumkan nama prinsiple.
+        - Memperbarui `ShiftTemplateExport` agar baris contoh (*sample rows*) pada template Excel menggunakan nama prinsiple yang ditugaskan kepada user tersebut.
+      - **6. Scoping Dropdown Shift pada Penjadwalan & Roster (`ListEmployeeSchedules.php` & `EmployeeScheduleRoster.php`)**:
+        - Memperbarui pemanggilan opsi shift kerja pada dialog modal pembuatan jadwal agar menggunakan `Shift::forUser()`.
 
 
 

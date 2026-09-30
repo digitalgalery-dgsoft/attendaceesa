@@ -29,6 +29,12 @@ class ShiftImport implements ToCollection
     protected function refreshCaches(): void
     {
         try {
+            $currentUser = Auth::user();
+            $isAdmin = $currentUser ? (method_exists($currentUser, 'isAdministrator') ? $currentUser->isAdministrator() : ($currentUser->isSuperAdmin() || $currentUser->hasRole(['Administrator', 'Admin', 'admin']))) : true;
+            $accessiblePrincipalIds = ($currentUser && !$isAdmin)
+                ? (method_exists($currentUser, 'getAccessiblePrincipalIds') ? $currentUser->getAccessiblePrincipalIds() : $currentUser->principals()->pluck('principals.id')->toArray())
+                : null;
+
             $principals = Principal::where('is_active', true)->get();
             foreach ($principals as $p) {
                 $this->principalsMap[strtolower(trim($p->name))] = $p->id;
@@ -37,8 +43,12 @@ class ShiftImport implements ToCollection
                 }
             }
 
-            $this->defaultPrincipalId = $principals->first()?->id 
-                ?? Principal::first()?->id;
+            if (!empty($accessiblePrincipalIds)) {
+                $this->defaultPrincipalId = $accessiblePrincipalIds[0];
+            } else {
+                $this->defaultPrincipalId = $principals->first()?->id 
+                    ?? Principal::first()?->id;
+            }
         } catch (\Throwable $e) {
             // Fallback jika query bermasalah saat konstruksi objek
         }
@@ -52,9 +62,9 @@ class ShiftImport implements ToCollection
         }
 
         $currentUser = Auth::user();
-        $isSuperAdmin = $currentUser ? $currentUser->isSuperAdmin() : true;
-        $accessiblePrincipalIds = ($currentUser && !$isSuperAdmin && $currentUser->hasPrincipalRestriction())
-            ? $currentUser->getAccessiblePrincipalIds()
+        $isAdmin = $currentUser ? (method_exists($currentUser, 'isAdministrator') ? $currentUser->isAdministrator() : ($currentUser->isSuperAdmin() || $currentUser->hasRole(['Administrator', 'Admin', 'admin']))) : true;
+        $accessiblePrincipalIds = ($currentUser && !$isAdmin)
+            ? (method_exists($currentUser, 'getAccessiblePrincipalIds') ? $currentUser->getAccessiblePrincipalIds() : $currentUser->principals()->pluck('principals.id')->toArray())
             : null;
 
         // =========================================================================

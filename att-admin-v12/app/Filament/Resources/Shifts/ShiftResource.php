@@ -13,6 +13,8 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 
 class ShiftResource extends Resource
 {
@@ -49,9 +51,67 @@ class ShiftResource extends Resource
         ];
     }
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()->forUser();
+    }
+
     public static function canViewAny(): bool
     {
-        return auth()->user()->hasRole('Super Admin') || auth()->user()->can('view_shifts');
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        $isAdmin = method_exists($user, 'isAdministrator')
+            ? $user->isAdministrator()
+            : ($user->isSuperAdmin() || $user->hasRole(['Administrator', 'Admin', 'admin']));
+
+        return $isAdmin || $user->can('view_shifts') || $user->can('view_any_shifts');
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        $isAdmin = method_exists($user, 'isAdministrator')
+            ? $user->isAdministrator()
+            : ($user->isSuperAdmin() || $user->hasRole(['Administrator', 'Admin', 'admin']));
+
+        if ($isAdmin) {
+            return true;
+        }
+
+        $principalIds = method_exists($user, 'getAccessiblePrincipalIds')
+            ? $user->getAccessiblePrincipalIds()
+            : $user->principals()->pluck('principals.id')->toArray();
+
+        return in_array($record->principal_id, $principalIds);
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        $user = auth()->user();
+        if (!$user) {
+            return false;
+        }
+
+        $isAdmin = method_exists($user, 'isAdministrator')
+            ? $user->isAdministrator()
+            : ($user->isSuperAdmin() || $user->hasRole(['Administrator', 'Admin', 'admin']));
+
+        if ($isAdmin) {
+            return true;
+        }
+
+        $principalIds = method_exists($user, 'getAccessiblePrincipalIds')
+            ? $user->getAccessiblePrincipalIds()
+            : $user->principals()->pluck('principals.id')->toArray();
+
+        return in_array($record->principal_id, $principalIds);
     }
 }
 

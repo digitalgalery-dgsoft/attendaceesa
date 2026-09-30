@@ -89,7 +89,7 @@ class ListEmployeeSchedules extends ListRecords
                         ->afterOrEqual('start_date'),
                     Select::make('shift_id')
                         ->label('Shift Kerja')
-                        ->options(fn () => Shift::where('is_active', 1)->with('principal')->get()->mapWithKeys(fn ($s) => [$s->id => ($s->principal ? "[{$s->principal->name}] " : '') . $s->name]))
+                        ->options(fn () => Shift::forUser()->where('is_active', 1)->with('principal')->get()->mapWithKeys(fn ($s) => [$s->id => ($s->principal ? "[{$s->principal->name}] " : '') . $s->name]))
                         ->searchable()
                         ->preload()
                         ->required(),

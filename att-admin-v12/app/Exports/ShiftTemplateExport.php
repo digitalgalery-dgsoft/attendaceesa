@@ -53,7 +53,23 @@ class ShiftTemplateExport extends DefaultValueBinder implements FromArray, WithH
     public function array(): array
     {
         try {
-            $defaultPrincipal = Principal::where('is_active', true)->first()?->name ?? 'PT ARINA MULTI KARYA';
+            $currentUser = auth()->user();
+            $isAdmin = $currentUser ? (method_exists($currentUser, 'isAdministrator') ? $currentUser->isAdministrator() : ($currentUser->isSuperAdmin() || $currentUser->hasRole(['Administrator', 'Admin', 'admin']))) : true;
+            
+            if ($currentUser && !$isAdmin) {
+                $principalIds = method_exists($currentUser, 'getAccessiblePrincipalIds')
+                    ? $currentUser->getAccessiblePrincipalIds()
+                    : $currentUser->principals()->pluck('principals.id')->toArray();
+
+                if (!empty($principalIds)) {
+                    $principal = Principal::whereIn('id', $principalIds)->first();
+                    $defaultPrincipal = $principal?->name ?? 'PT ARINA MULTI KARYA';
+                } else {
+                    $defaultPrincipal = Principal::where('is_active', true)->first()?->name ?? 'PT ARINA MULTI KARYA';
+                }
+            } else {
+                $defaultPrincipal = Principal::where('is_active', true)->first()?->name ?? 'PT ARINA MULTI KARYA';
+            }
         } catch (\Throwable $e) {
             $defaultPrincipal = 'PT ARINA MULTI KARYA';
         }

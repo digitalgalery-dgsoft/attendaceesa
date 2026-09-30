@@ -2569,6 +2569,29 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Menerapkan `->recordUrl(null)->recordAction(null)` pada table schema.
         - Memastikan tombol aksi **Edit** tetap tersedia di kolom aksi sisi kanan baris untuk navigasi ke formulir edit/detail.
       - **3. Hasil Akhir**: Baris tabel kini murni elemen `<div>` standar tanpa aksi klik, teks dapat diseleksi dan di-copy (`Ctrl+C`) dengan leluasa.
+- [x] **Milestone 63: Pembatasan Hak Akses Master Shift Berdasarkan Prinsiple (Principle Access Scoping untuk Non-Administrator)** (Selesai 30 September 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Pengguna meminta agar di halaman Master Shift (`/admin/shifts`), user dengan Role Akses selain Administrator (seperti Principal PIC, Client, AS/AE Inhouse, dsb.) hanya dapat melihat, memfilter, dan mengelola shift kerja yang sesuai dengan prinsiple yang ditugaskan kepada mereka saja.
+      - Sebelumnya, `ShiftResource` tidak mengimplementasikan `getEloquentQuery()` scoping, sehingga seluruh daftar shift dari seluruh prinsiple/klien tampil secara terbuka ke semua pengguna yang memiliki izin akses menu shift.
+    - **Solusi & Implementasi**:
+      - **1. Helper Cerdas Hak Akses Administrator & Resolusi Prinsiple (`User.php`)**:
+        - Menambahkan method `isAdministrator(): bool` pada model `User` yang memverifikasi peran administrator (`Super Admin`, `super_admin`, `Administrator`, `Admin`, `admin`, atau peran yang mengandung kata 'admin').
+        - Memperbarui `hasPrincipalRestriction()` dan `getAccessiblePrincipalIds()` agar mengecualikan Administrator, membaca relasi `principals`, serta mendukung fallback ke `employee->principal_id` secara terpadu.
+      - **2. Query Scope Otomatis pada Model Shift (`Shift.php`)**:
+        - Menambahkan local scope `scopeForUser(Builder $query, ?User $user = null): Builder` pada model `Shift`.
+        - Administrator mendapatkan seluruh shift, sedangkan non-administrator dibatasi secara ketat hanya pada shift dengan `shifts.principal_id` yang sesuai dengan prinsiple yang di-handle user. Jika user non-admin belum memiliki prinsiple yang terdaftar, query diproteksi (`1 = 0`) agar tidak membocorkan shift milik prinsiple lain.
+      - **3. Scoping Query & Otorisasi Record Resource (`ShiftResource.php`)**:
+        - Menambahkan `getEloquentQuery(): Builder` yang menerapkan query scoping `parent::getEloquentQuery()->forUser()`.
+        - Memperbarui `canViewAny()` agar mendukung role administrator maupun permission `view_shifts`.
+        - Menambahkan proteksi ganda pada aksi record `canEdit()` dan `canDelete()` untuk memverifikasi kecocokan `record->principal_id` dengan prinsiple yang diakses user.
+      - **4. Penyelarasan Filter Tabel & Formulir Input Shift (`ShiftsTable.php` & `ShiftForm.php`)**:
+        - Memperbarui dropdown filter `SelectFilter::make('principal_id')` pada tabel daftar shift agar hanya menyajikan daftar prinsiple yang berhak diakses oleh user non-administrator.
+        - Memperbarui field `Select::make('principal_id')` pada formulir Create/Edit shift agar opsinya dibatasi pada prinsiple user, serta otomatis memilih (*pre-select default*) prinsiple terkait jika user hanya mengelola 1 prinsiple.
+      - **5. Pengamanan Import & Template Ekspor Shift (`ShiftImport.php` & `ShiftTemplateExport.php`)**:
+        - Memperbarui `ShiftImport` agar memvalidasi baris Excel terhadap `accessiblePrincipalIds` dan menetapkan default prinsiple user pada baris yang tidak mencantumkan nama prinsiple.
+        - Memperbarui `ShiftTemplateExport` agar baris contoh (*sample rows*) pada template Excel menggunakan nama prinsiple yang ditugaskan kepada user tersebut.
+      - **6. Scoping Dropdown Shift pada Penjadwalan & Roster (`ListEmployeeSchedules.php` & `EmployeeScheduleRoster.php`)**:
+        - Memperbarui pemanggilan opsi shift kerja pada dialog modal pembuatan jadwal agar menggunakan `Shift::forUser()`.
 
 
 

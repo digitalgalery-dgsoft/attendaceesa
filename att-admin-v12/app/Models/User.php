@@ -68,9 +68,22 @@ class User extends Authenticatable implements FilamentUser
         return $this->hasRole('Super Admin') || $this->hasRole('super_admin');
     }
 
-    public function hasBranchRestriction(): bool
+    public function isAdministrator(): bool
     {
         if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($this->hasRole(['Administrator', 'Admin', 'admin'])) {
+            return true;
+        }
+
+        return $this->roles->contains(fn($role) => str_contains(strtolower($role->name), 'admin'));
+    }
+
+    public function hasBranchRestriction(): bool
+    {
+        if ($this->isAdministrator()) {
             return false;
         }
         return $this->branches()->exists();
@@ -78,7 +91,7 @@ class User extends Authenticatable implements FilamentUser
 
     public function getAccessibleBranchIds(): array
     {
-        if ($this->isSuperAdmin()) {
+        if ($this->isAdministrator()) {
             return [];
         }
         return $this->branches()->pluck('branches.id')->toArray();
@@ -86,18 +99,22 @@ class User extends Authenticatable implements FilamentUser
 
     public function hasPrincipalRestriction(): bool
     {
-        if ($this->isSuperAdmin()) {
+        if ($this->isAdministrator()) {
             return false;
         }
-        return $this->principals()->exists();
+        return $this->principals()->exists() || ($this->employee && $this->employee->principal_id);
     }
 
     public function getAccessiblePrincipalIds(): array
     {
-        if ($this->isSuperAdmin()) {
+        if ($this->isAdministrator()) {
             return [];
         }
-        return $this->principals()->pluck('principals.id')->toArray();
+        $ids = $this->principals()->pluck('principals.id')->toArray();
+        if (empty($ids) && $this->employee && $this->employee->principal_id) {
+            $ids = [(int) $this->employee->principal_id];
+        }
+        return array_values(array_unique(array_filter($ids)));
     }
 
     public function isPrincipalUser(): bool

@@ -14,7 +14,11 @@ trait ScopesUserData
     public static function applyUserAccessScope(Builder $query, ?User $user = null, ?string $branchColumn = null, ?string $principalColumn = null, string $employeeRelation = 'employee'): Builder
     {
         $user = $user ?: auth()->user();
-        if (!$user || $user->isSuperAdmin()) {
+        $isAdmin = method_exists($user, 'isAdministrator')
+            ? $user->isAdministrator()
+            : ($user->isSuperAdmin() || $user->hasRole(['Administrator', 'Admin', 'admin']));
+
+        if (!$user || $isAdmin) {
             return $query;
         }
 
@@ -40,9 +44,8 @@ trait ScopesUserData
         }
 
         // 2. Principal Scoping
+        $tableName = $query->getModel()->getTable();
         if (!empty($principalIds)) {
-            $tableName = $query->getModel()->getTable();
-
             // Check if model itself is Principal
             if ($tableName === 'principals') {
                 $query->whereIn('principals.id', $principalIds);
@@ -59,6 +62,9 @@ trait ScopesUserData
                     $q->whereIn('employees.principal_id', $principalIds);
                 });
             }
+        } elseif ($tableName === 'shifts') {
+            // Non-administrator tanpa asosiasi prinsiple tidak boleh melihat data shift prinsiple lain
+            $query->whereRaw('1 = 0');
         }
 
         return $query;

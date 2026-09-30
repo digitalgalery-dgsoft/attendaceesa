@@ -15,7 +15,53 @@ class ShiftForm
         return $schema
             ->components([
                 Select::make('principal_id')
-                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
+                    ->relationship('principal', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
+                        $query->where('is_active', true);
+                        $user = auth()->user();
+                        if ($user) {
+                            $isAdmin = method_exists($user, 'isAdministrator')
+                                ? $user->isAdministrator()
+                                : ($user->isSuperAdmin() || $user->hasRole(['Administrator', 'Admin', 'admin']));
+
+                            if (!$isAdmin) {
+                                $principalIds = method_exists($user, 'getAccessiblePrincipalIds')
+                                    ? $user->getAccessiblePrincipalIds()
+                                    : $user->principals()->pluck('principals.id')->toArray();
+
+                                if (empty($principalIds) && $user->employee && $user->employee->principal_id) {
+                                    $principalIds = [(int) $user->employee->principal_id];
+                                }
+
+                                if (!empty($principalIds)) {
+                                    $query->whereIn('id', $principalIds);
+                                } else {
+                                    $query->whereRaw('1 = 0');
+                                }
+                            }
+                        }
+                        return $query->orderBy('name');
+                    })
+                    ->default(function () {
+                        $user = auth()->user();
+                        if ($user) {
+                            $isAdmin = method_exists($user, 'isAdministrator')
+                                ? $user->isAdministrator()
+                                : ($user->isSuperAdmin() || $user->hasRole(['Administrator', 'Admin', 'admin']));
+
+                            if (!$isAdmin) {
+                                $principalIds = method_exists($user, 'getAccessiblePrincipalIds')
+                                    ? $user->getAccessiblePrincipalIds()
+                                    : $user->principals()->pluck('principals.id')->toArray();
+
+                                if (empty($principalIds) && $user->employee && $user->employee->principal_id) {
+                                    $principalIds = [(int) $user->employee->principal_id];
+                                }
+
+                                return count($principalIds) === 1 ? $principalIds[0] : null;
+                            }
+                        }
+                        return null;
+                    })
                     ->label('Prinsiple')
                     ->searchable()
                     ->preload()

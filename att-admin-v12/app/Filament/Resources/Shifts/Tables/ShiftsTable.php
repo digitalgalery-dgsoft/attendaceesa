@@ -66,7 +66,32 @@ class ShiftsTable
             ])
             ->filters([
                 \Filament\Tables\Filters\SelectFilter::make('principal_id')
-                    ->relationship('principal', 'name', fn ($query) => $query->where('is_active', true))
+                    ->relationship('principal', 'name', function (\Illuminate\Database\Eloquent\Builder $query) {
+                        $query->where('is_active', true);
+                        $user = auth()->user();
+                        if ($user) {
+                            $isAdmin = method_exists($user, 'isAdministrator')
+                                ? $user->isAdministrator()
+                                : ($user->isSuperAdmin() || $user->hasRole(['Administrator', 'Admin', 'admin']));
+
+                            if (!$isAdmin) {
+                                $principalIds = method_exists($user, 'getAccessiblePrincipalIds')
+                                    ? $user->getAccessiblePrincipalIds()
+                                    : $user->principals()->pluck('principals.id')->toArray();
+
+                                if (empty($principalIds) && $user->employee && $user->employee->principal_id) {
+                                    $principalIds = [(int) $user->employee->principal_id];
+                                }
+
+                                if (!empty($principalIds)) {
+                                    $query->whereIn('id', $principalIds);
+                                } else {
+                                    $query->whereRaw('1 = 0');
+                                }
+                            }
+                        }
+                        return $query->orderBy('name');
+                    })
                     ->label('Prinsiple')
                     ->searchable()
                     ->preload(),
