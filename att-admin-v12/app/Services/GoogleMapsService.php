@@ -44,6 +44,22 @@ class GoogleMapsService
             }
         }
 
+        // 1b. Indonesian direct coordinate check with comma decimals: e.g. "-7,306806, 112,6566062" or "-7,306806; 112,6566062"
+        if (preg_match('/^\s*(-?\d{1,2},\d+)\s*[,;\s]\s*(-?\d{1,3},\d+)\s*$/', $input, $matches)) {
+            $lat = (float) str_replace(',', '.', $matches[1]);
+            $lng = (float) str_replace(',', '.', $matches[2]);
+            if (self::isValidCoordinate($lat, $lng)) {
+                return [
+                    'latitude' => $lat,
+                    'longitude' => $lng,
+                    'raw_url' => $input,
+                    'resolved_url' => "https://www.google.com/maps?q={$lat},{$lng}",
+                    'success' => true,
+                    'message' => 'Koordinat format lokal berhasil diekstrak secara langsung.'
+                ];
+            }
+        }
+
         // 2. If it's a URL
         $targetUrl = $input;
         $htmlBody = null;

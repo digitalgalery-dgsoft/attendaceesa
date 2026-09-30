@@ -163,7 +163,16 @@ class WorkLocationForm
                         $region = $get('region');
                         if (!$region) return [];
                         
-                        $file = 'G:\My File\Project APlikasi Absensi\New\tb_kota.csv';
+                        $file = database_path('data/tb_kota.csv');
+                        if (!file_exists($file)) {
+                            $file = base_path('../tb_kota.csv');
+                        }
+                        if (!file_exists($file)) {
+                            $file = base_path('tb_kota.csv');
+                        }
+                        if (!file_exists($file)) {
+                            $file = 'G:\My File\Project APlikasi Absensi\New\tb_kota.csv';
+                        }
                         if (!file_exists($file)) return [];
                         
                         $handle = fopen($file, "r");
@@ -295,30 +304,37 @@ class WorkLocationForm
                     ->placeholder('Contoh: -7.250445')
                     ->required()
                     ->numeric()
+                    ->minValue(-90)
+                    ->maxValue(90)
+                    ->rules(['numeric', 'between:-90,90'])
+                    ->validationMessages([
+                        'between' => 'Latitude harus berada dalam rentang -90 hingga 90 derajat (Contoh: -7.250445).',
+                    ])
                     ->live(onBlur: true)
                     ->afterStateUpdated(function ($state, $get, $set, ?\Livewire\Component $livewire) {
                         if (blank($state)) return;
                         
                         // Deteksi jika user paste format koordinat gabungan "lat, lng"
-                        if (is_string($state) && str_contains($state, ',')) {
-                            $parts = explode(',', $state);
-                            if (count($parts) === 2 && is_numeric(trim($parts[0])) && is_numeric(trim($parts[1]))) {
-                                $lat = (float) trim($parts[0]);
-                                $lng = (float) trim($parts[1]);
-                                $set('latitude', $lat);
-                                $set('longitude', $lng);
-                                $set('location', ['lat' => $lat, 'lng' => $lng]);
-                                $livewire?->dispatch('refreshMap');
-                                return;
-                            }
+                        $pair = \App\Models\WorkLocation::parseCoordinatePair(is_string($state) ? $state : null);
+                        if ($pair) {
+                            $set('latitude', $pair['lat']);
+                            $set('longitude', $pair['lng']);
+                            $set('location', ['lat' => $pair['lat'], 'lng' => $pair['lng']]);
+                            $livewire?->dispatch('refreshMap');
+                            return;
                         }
                         
-                        $lat = (float) $state;
-                        $lngVal = $get('longitude');
-                        if (is_numeric($state) && is_numeric($lngVal)) {
-                            $lng = (float) $lngVal;
-                            $set('location', ['lat' => $lat, 'lng' => $lng]);
-                            $livewire?->dispatch('refreshMap');
+                        $lat = \App\Models\WorkLocation::normalizeCoordinate($state, 'lat');
+                        if ($lat !== null) {
+                            if ((string)$lat !== (string)$state) {
+                                $set('latitude', $lat);
+                            }
+                            $lngVal = $get('longitude');
+                            $lng = \App\Models\WorkLocation::normalizeCoordinate($lngVal, 'lng');
+                            if ($lng !== null) {
+                                $set('location', ['lat' => $lat, 'lng' => $lng]);
+                                $livewire?->dispatch('refreshMap');
+                            }
                         }
                     }),
                 TextInput::make('longitude')
@@ -326,16 +342,37 @@ class WorkLocationForm
                     ->placeholder('Contoh: 112.768845')
                     ->required()
                     ->numeric()
+                    ->minValue(-180)
+                    ->maxValue(180)
+                    ->rules(['numeric', 'between:-180,180'])
+                    ->validationMessages([
+                        'between' => 'Longitude harus berada dalam rentang -180 hingga 180 derajat (Contoh: 112.768845).',
+                    ])
                     ->live(onBlur: true)
                     ->afterStateUpdated(function ($state, $get, $set, ?\Livewire\Component $livewire) {
                         if (blank($state)) return;
                         
-                        $latVal = $get('latitude');
-                        if (is_numeric($latVal) && is_numeric($state)) {
-                            $lat = (float) $latVal;
-                            $lng = (float) $state;
-                            $set('location', ['lat' => $lat, 'lng' => $lng]);
+                        // Deteksi jika user paste format koordinat gabungan "lat, lng"
+                        $pair = \App\Models\WorkLocation::parseCoordinatePair(is_string($state) ? $state : null);
+                        if ($pair) {
+                            $set('latitude', $pair['lat']);
+                            $set('longitude', $pair['lng']);
+                            $set('location', ['lat' => $pair['lat'], 'lng' => $pair['lng']]);
                             $livewire?->dispatch('refreshMap');
+                            return;
+                        }
+                        
+                        $lng = \App\Models\WorkLocation::normalizeCoordinate($state, 'lng');
+                        if ($lng !== null) {
+                            if ((string)$lng !== (string)$state) {
+                                $set('longitude', $lng);
+                            }
+                            $latVal = $get('latitude');
+                            $lat = \App\Models\WorkLocation::normalizeCoordinate($latVal, 'lat');
+                            if ($lat !== null) {
+                                $set('location', ['lat' => $lat, 'lng' => $lng]);
+                                $livewire?->dispatch('refreshMap');
+                            }
                         }
                     }),
                 Map::make('location')

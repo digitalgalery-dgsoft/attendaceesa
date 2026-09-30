@@ -2479,4 +2479,42 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **Matriks Tim Belum Check-In (Prinsiple vs Area)**: Tabel pivot interaktif rows Prinsiple vs columns Area dengan cell badge angka yang dapat diklik untuk memfilter langsung detail karyawan di bawah, dilengkapi banner filter aktif matriks.
       - **Tabel Rincian Data Karyawan Belum Check-In**: Format kolom No, Nama Karyawan (Kapital & NIK), Jabatan, Prinsiple, Area, dan Tgl Tidak Check-In (7 Hari Terakhir) yang menyajikan chip badge tanggal (merah untuk hari ini, pink untuk hari sebelumnya) beserta subteks total hari & riwayat hadir terakhir.
       - **Ekspor CSV**: Rute dan ekspor data monitoring tim belum check-in (`portal.unchecked.export`).
+- [x] **Milestone 58: Peningkatan Fitur Portal Principal (Filter Searchable, Live Tracking GPS Rute Native, & Dinamisasi Laporan Penjualan Regular)** (Selesai 30 September 2026)
+    - **1. Filter Dropdown Searchable pada Presensi & Monitoring Belum Check-in**:
+      - Seluruh elemen dropdown filter (Wilayah / Area Cabang, Toko / Work Location, Mitra / Karyawan) pada halaman Presensi (`portal.attendances`) dan Monitoring Belum Check-in (`portal.unchecked`) diubah menjadi searchable dropdown kustom.
+      - Dilengkapi live filter input pencarian cepat, tombol clear/reset, highlight opsi aktif, serta auto-submit instan pada saat opsi dipilih tanpa perlu scroll panjang.
+      - Penanganan bug error variabel `$todayStr` pada blade presensi.
+    - **2. Peningkatan Ukuran Modal Rincian Presensi**:
+      - Memperbesar ukuran modal detail presensi dan aktivitas karyawan (`#attendanceDetailModal`) menjadi `max-width: 1200px` (desktop) dengan grid split 2 kolom (info rincian & timeline aktivitas berdampingan dengan embed peta Google Maps interaktif).
+    - **3. Halaman Live Tracking GPS Rute Native di Portal Principal**:
+      - Tombol "Lihat Live Tracking GPS" pada modal presensi sebelumnya membuka tautan eksternal Google Maps. Kini diperbarui membuka halaman rute interaktif native di Portal Principal (`portal.attendances.route` / `portal/tracking_history.blade.php`), identik dengan live tracking di Filament Dashboard Admin.
+      - Menampilkan peta Leaflet/OpenStreetMap dengan multi-polylines GPS rute perjalanan harian, start & end marker, titik transit/visit berkode warna, panel sidebar statistik rute (total jarak, titik tercatat, timeline kronologis), filter tanggal, serta kontrol interaktif peta.
+    - **4. Penyesuaian Judul Tren Penjualan & Modal Galeri Dinamis (Regular vs Event MBR)**:
+      - Memperbaiki judul grafik pada kartu Tren Penjualan di dashboard executive (`wings_mbr_dashboard.blade.php`) agar dinamis mengikuti template laporan yang sedang dibuka:
+        - Pada halaman **Laporan Penjualan (Regular)**: Judul otomatis berubah menjadi **`Tren Penjualan (Regular)`**.
+        - Pada halaman **Laporan Penjualan (Event MBR)**: Judul tetap **`Tren Penjualan (Event MBR)`**.
+      - Menyelaraskan judul modal galeri dokumentasi foto menjadi dinamis: `Galeri Dokumentasi Foto Penjualan (Regular)` / `Galeri Dokumentasi Foto Penjualan (Event MBR)`.
+      - Menyelaraskan panel rincian produk penjualan pada detail submisi laporan (`report_submission_detail.blade.php`) menjadi `Rincian Produk Penjualan (Regular)` / `Rincian Produk Penjualan (Event MBR)`.
+- [x] **Milestone 59: Perbaikan Form Work Location (Validasi & Auto-Normalisasi Koordinat GPS serta Penyelarasan Dataset Sub Area Kota)** (Selesai 30 September 2026)
+    - **Latar Belakang & Masalah**:
+      - Terjadi error fatal HTTP 500 saat membuat master lokasi kerja (*Work Location*) baru via Filament Admin (`/admin/work-locations/create`):
+        `Illuminate\Database\QueryException: SQLSTATE[22003]: Numeric value out of range: 7 ERROR: numeric field overflow DETAIL: A field with precision 10, scale 7 must round to an absolute value less than 10^3.`
+      - Penyebab: Kolom `latitude` dan `longitude` bertipe `decimal(10, 7)`. Ketika user menginput koordinat yang tidak memiliki titik desimal (misalnya integer microdegrees `-7306806` atau `1126566062` yang disalin dari spreadsheet/perangkat tanpa tanda titik), nilai tersebut melampaui batas absolut $10^3$ (1.000) pada PostgreSQL sehingga query `insert into "work_locations"` gagal seketika. Selain itu, form belum membatasi rentang nilai fisik bumi (-90 s/d 90 untuk latitude, -180 s/d 180 untuk longitude) serta belum mendukung format desimal koma lokal (`-7,306806, 112,6566062`).
+      - Ditemukan juga hardcoded file path lokal Windows `G:\My File\...` pada pemanggilan dataset `tb_kota.csv` untuk dropdown filter `sub_area`, yang menyebabkan dropdown sub area kosong ketika dijalankan pada server staging/production Linux.
+    - **Solusi & Implementasi**:
+      - **1. Auto-Normalisasi Cerdas Koordinat GPS (`WorkLocation.php`)**:
+        - Menambahkan method statis `WorkLocation::normalizeCoordinate($value, $type)` yang mampu mengidentifikasi dan mereparasi koordinat yang kehilangan titik desimal (misalnya `-7306806` otomatis menjadi `-7.306806`, dan `1126566062` otomatis menjadi `112.6566062`), memperbaiki separator koma ke titik, dan membulatkan ke 7 digit presisi.
+        - Menambahkan method `WorkLocation::parseCoordinatePair($input)` untuk otomatis memecah format koordinat gabungan lat/lng jika user menempelkan satu teks koordinat lengkap ke dalam field latitude.
+        - Menerapkan mutator Eloquent `setLatitudeAttribute`, `setLongitudeAttribute`, serta event model hook `static::saving(...)` agar koordinat selalu otomatis bersih dan aman dari overflow terlepas dari mana asal pembuatannya (Filament form, API, import, atau console command).
+      - **2. Penyelarasan Form Filament Admin (`WorkLocationForm.php`, `CreateWorkLocation.php`, `EditWorkLocation.php`)**:
+        - Menambahkan batasan nilai eksplisit dan rule validasi `minValue(-90)->maxValue(90)->rules(['numeric', 'between:-90,90'])` pada field `latitude`, serta `minValue(-180)->maxValue(180)->rules(['numeric', 'between:-180,180'])` pada field `longitude` dengan pesan error bahasa Indonesia yang ramah pengguna.
+        - Memperbarui reaktivitas `afterStateUpdated` pada kedua field agar input teks yang ditempelkan user otomatis ternormalisasi secara live dan memindahkan pin lokasi peta (*Location Map*).
+        - Menambahkan hook sanitasi `mutateFormDataBeforeCreate` pada `CreateWorkLocation` dan `mutateFormDataBeforeSave` pada `EditWorkLocation`.
+      - **3. Peningkatan Ekstraksi Koordinat Google Maps (`GoogleMapsService.php`)**:
+        - Memperbarui regex ekstraksi langsung koordinat agar mendukung koordinat desimal format lokal koma (contoh: `-7,306806, 112,6566062` atau `-7,306806; 112,6566062`).
+      - **4. Penanganan Path Portabel Dataset Sub Area Kota (`tb_kota.csv`)**:
+        - Menyalin `tb_kota.csv` ke dalam `att-admin-v12/database/data/tb_kota.csv` dan memperbarui `WorkLocationForm.php` agar membaca dari `database_path('data/tb_kota.csv')` dengan fallback dinamis, sehingga dropdown `sub_area` berfungsi sempurna di server Linux (staging dan production).
+      - **5. Migrasi Optimasi Presisi Kolom (`2026_09_30_120000_optimize_work_locations_coordinates_precision.php`)**:
+        - Membuat migrasi database untuk memperlebar kolom `latitude` dan `longitude` pada tabel `work_locations` dari `NUMERIC(10, 7)` menjadi `NUMERIC(11, 8)` agar mendukung presisi hingga 8 digit desimal dan mencegah numeric overflow pada PostgreSQL/MySQL.
+
 
