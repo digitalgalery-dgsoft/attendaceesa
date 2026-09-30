@@ -14,6 +14,8 @@ class ShiftsTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->recordUrl(null)
+            ->recordAction(null)
             ->columns([
                 TextColumn::make('principal.name')
                     ->label('Prinsiple')

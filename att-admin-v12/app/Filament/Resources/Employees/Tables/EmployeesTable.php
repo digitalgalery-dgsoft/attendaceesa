@@ -23,6 +23,8 @@ class EmployeesTable
     public static function configure(Table $table): Table
     {
         return $table
+            ->recordUrl(null)
+            ->recordAction(null)
             ->columns([
                 ImageColumn::make('photo')
                     ->label('Foto Master')
