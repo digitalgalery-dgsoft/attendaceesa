@@ -28,6 +28,16 @@ class UserForm
                     ->multiple()
                     ->relationship('roles', 'name')
                     ->preload(),
+                \Filament\Forms\Components\Select::make('login_destination')
+                    ->label('Akses Panel / Portal Login')
+                    ->options([
+                        'admin' => 'Dashboard Admin (/admin)',
+                        'portal' => 'Portal Prinsiple (/portal)',
+                    ])
+                    ->default('admin')
+                    ->required()
+                    ->helperText('Pilih tujuan akses ketika login: Dashboard Admin (untuk Super Admin, Admin, HR, Manager, AS/AE Inhouse) atau Portal Prinsiple (khusus Client / PIC Prinsiple).')
+                    ->native(false),
                 \Filament\Forms\Components\Select::make('branches')
                     ->label('Area / Cabang yang Di-cover')
                     ->helperText('Pilih area/cabang yang dapat diakses oleh user ini. Jika dikosongkan, user dapat mengakses seluruh area.')

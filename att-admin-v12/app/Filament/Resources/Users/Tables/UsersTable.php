@@ -34,6 +34,18 @@ class UsersTable
                     ->color('success')
                     ->placeholder('Semua Prinsiple')
                     ->searchable(),
+                TextColumn::make('login_destination')
+                    ->label('Akses Login')
+                    ->badge()
+                    ->formatStateUsing(fn ($state) => match ($state) {
+                        'portal' => 'Portal Prinsiple',
+                        default => 'Dashboard Admin',
+                    })
+                    ->color(fn ($state) => match ($state) {
+                        'portal' => 'warning',
+                        default => 'primary',
+                    })
+                    ->sortable(),
                 TextColumn::make('employee.full_name')
                     ->label('Employee')
                     ->searchable()

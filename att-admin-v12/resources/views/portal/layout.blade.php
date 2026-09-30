@@ -1342,6 +1342,12 @@
 
             <!-- 8. Akses Cepat -->
             <div class="menu-category-label">Akses Cepat</div>
+            @if(Auth::check() && (Auth::user()->isSuperAdmin() || Auth::user()->hasRole('Admin') || Auth::user()->hasRole('HR') || Auth::user()->hasRole('Manager') || Auth::user()->hasRole('AS / AE Inhouse') || Auth::user()->login_destination === 'admin' || Auth::user()->can('manage_users')))
+            <a href="/admin" class="sidebar-nav-item" data-title="Dashboard Admin" style="background: rgba(15, 82, 186, 0.08); border-left: 3px solid #0F52BA; margin-bottom: 0.35rem;">
+                <i class="fa-solid fa-gauge nav-icon" style="color: #0F52BA;"></i>
+                <span class="nav-text" style="font-weight: 700; color: #0F52BA;">Dashboard Admin</span>
+            </a>
+            @endif
             <a href="/?p={{ $tenantPrincipal->id }}" class="sidebar-nav-item" target="_blank" data-title="Lihat Landing Page">
                 <i class="fa-solid fa-globe nav-icon"></i>
                 <span class="nav-text">Lihat Landing Page</span>

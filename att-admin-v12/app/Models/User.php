@@ -26,6 +26,7 @@ class User extends Authenticatable implements FilamentUser
         'email',
         'password',
         'fcm_token',
+        'login_destination',
     ];
 
     /**
@@ -105,11 +106,23 @@ class User extends Authenticatable implements FilamentUser
             return false;
         }
 
+        // 1. Explicit destination setting has the highest priority
+        if (!empty($this->login_destination)) {
+            return $this->login_destination === 'portal';
+        }
+
+        // 2. Explicit principal / client roles
         if ($this->hasRole('Principal PIC') || $this->hasRole('principal_pic') || $this->hasRole('Principal') || $this->hasRole('Client')) {
             return true;
         }
 
-        if ($this->principals()->exists() && !$this->hasRole('Admin') && !$this->hasRole('HR') && !$this->hasRole('Manager')) {
+        // 3. Explicit internal management/operational roles (AS/AE, Admin, HR, Manager) always belong to Admin Dashboard
+        if ($this->hasRole('AS / AE Inhouse') || $this->hasRole('AS') || $this->hasRole('AE') || $this->hasRole('Admin') || $this->hasRole('HR') || $this->hasRole('Manager')) {
+            return false;
+        }
+
+        // 4. Fallback legacy heuristic: if user only has principal association without internal role
+        if ($this->principals()->exists()) {
             return true;
         }
 

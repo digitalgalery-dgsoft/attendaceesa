@@ -20,6 +20,10 @@ class TenantAuthController extends Controller
                 return redirect()->to($user->getRedirectUrlAfterLogin($p));
             }
 
+            if ($user && ($user->login_destination === 'admin' || $user->isSuperAdmin() || $user->hasRole('Admin') || $user->hasRole('AS / AE Inhouse'))) {
+                return redirect()->to('/admin');
+            }
+
             if ($p) {
                 return redirect()->to("/portal?p={$p}");
             }
@@ -79,6 +83,10 @@ class TenantAuthController extends Controller
 
             if ($user && method_exists($user, 'isPrincipalUser') && $user->isPrincipalUser()) {
                 return redirect()->intended($user->getRedirectUrlAfterLogin($p));
+            }
+
+            if ($user && ($user->login_destination === 'admin' || $user->isSuperAdmin() || $user->hasRole('Admin') || $user->hasRole('AS / AE Inhouse'))) {
+                return redirect()->intended('/admin');
             }
 
             if ($p) {
