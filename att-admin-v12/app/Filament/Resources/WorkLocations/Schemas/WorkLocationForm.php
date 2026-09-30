@@ -189,19 +189,38 @@ class WorkLocationForm
                         asort($options);
                         return $options;
                     })
+                    ->live()
+                    ->afterStateUpdated(function ($state, $get, $set) {
+                        if ($state) {
+                            $lat = $get('latitude');
+                            $lng = $get('longitude');
+                            $tz = \App\Models\WorkLocation::determineTimezone(
+                                $lat ? (float)$lat : null,
+                                $lng ? (float)$lng : null,
+                                $state
+                            );
+                            if ($tz) {
+                                $set('timezone', $tz);
+                            }
+                        }
+                    })
                     ->searchable(),
                 TextInput::make('channel')
                     ->maxLength(255),
                 TextInput::make('account')
                     ->maxLength(255),
                 Select::make('timezone')
+                    ->label('Zona Waktu (Timezone)')
+                    ->helperText('Otomatis mendeteksi WIB (UTC+7), WITA (UTC+8), atau WIT (UTC+9) mengikuti titik koordinat atau kota.')
                     ->options([
-                        'Asia/Jakarta' => 'WIB (Asia/Jakarta)',
-                        'Asia/Makassar' => 'WITA (Asia/Makassar)',
-                        'Asia/Jayapura' => 'WIT (Asia/Jayapura)',
+                        'Asia/Jakarta' => 'WIB (Asia/Jakarta - UTC+7)',
+                        'Asia/Makassar' => 'WITA (Asia/Makassar - UTC+8)',
+                        'Asia/Jayapura' => 'WIT (Asia/Jayapura - UTC+9)',
                     ])
                     ->searchable()
-                    ->default('Asia/Jakarta'),
+                    ->live()
+                    ->default('Asia/Jakarta')
+                    ->required(),
                 Select::make('status')
                     ->options([
                         'pending' => 'Pending Approval',
@@ -284,17 +303,20 @@ class WorkLocationForm
                     })
                     ->getOptionLabelUsing(fn ($value): ?string => $value)
                     ->live()
-                    ->afterStateUpdated(function ($state, $set, \Livewire\Component $livewire) {
+                    ->afterStateUpdated(function ($state, $get, $set, \Livewire\Component $livewire) {
                         if (blank($state)) return;
                         
                         $coords = explode(',', $state);
                         if (count($coords) === 2) {
-                            $lat = (float) $coords[0];
-                            $lng = (float) $coords[1];
+                            $lat = \App\Models\WorkLocation::normalizeCoordinate($coords[0], 'lat');
+                            $lng = \App\Models\WorkLocation::normalizeCoordinate($coords[1], 'lng');
                             $set('latitude', $lat);
                             $set('longitude', $lng);
                             $set('location', ['lat' => $lat, 'lng' => $lng]);
                             
+                            $tz = \App\Models\WorkLocation::determineTimezone($lat, $lng, $get('sub_area'));
+                            $set('timezone', $tz);
+
                             $livewire->dispatch('refreshMap');
                         }
                     })
@@ -320,6 +342,8 @@ class WorkLocationForm
                             $set('latitude', $pair['lat']);
                             $set('longitude', $pair['lng']);
                             $set('location', ['lat' => $pair['lat'], 'lng' => $pair['lng']]);
+                            $tz = \App\Models\WorkLocation::determineTimezone($pair['lat'], $pair['lng'], $get('sub_area'));
+                            $set('timezone', $tz);
                             $livewire?->dispatch('refreshMap');
                             return;
                         }
@@ -333,6 +357,8 @@ class WorkLocationForm
                             $lng = \App\Models\WorkLocation::normalizeCoordinate($lngVal, 'lng');
                             if ($lng !== null) {
                                 $set('location', ['lat' => $lat, 'lng' => $lng]);
+                                $tz = \App\Models\WorkLocation::determineTimezone($lat, $lng, $get('sub_area'));
+                                $set('timezone', $tz);
                                 $livewire?->dispatch('refreshMap');
                             }
                         }
@@ -358,6 +384,8 @@ class WorkLocationForm
                             $set('latitude', $pair['lat']);
                             $set('longitude', $pair['lng']);
                             $set('location', ['lat' => $pair['lat'], 'lng' => $pair['lng']]);
+                            $tz = \App\Models\WorkLocation::determineTimezone($pair['lat'], $pair['lng'], $get('sub_area'));
+                            $set('timezone', $tz);
                             $livewire?->dispatch('refreshMap');
                             return;
                         }
@@ -371,6 +399,8 @@ class WorkLocationForm
                             $lat = \App\Models\WorkLocation::normalizeCoordinate($latVal, 'lat');
                             if ($lat !== null) {
                                 $set('location', ['lat' => $lat, 'lng' => $lng]);
+                                $tz = \App\Models\WorkLocation::determineTimezone($lat, $lng, $get('sub_area'));
+                                $set('timezone', $tz);
                                 $livewire?->dispatch('refreshMap');
                             }
                         }
@@ -378,10 +408,14 @@ class WorkLocationForm
                 Map::make('location')
                     ->label('Location Map')
                     ->columnSpanFull()
-                    ->afterStateUpdated(function ($set, ?array $state): void {
+                    ->afterStateUpdated(function ($set, ?array $state, $get): void {
                         if (isset($state['lat']) && isset($state['lng'])) {
-                            $set('latitude', $state['lat']);
-                            $set('longitude', $state['lng']);
+                            $lat = \App\Models\WorkLocation::normalizeCoordinate($state['lat'], 'lat');
+                            $lng = \App\Models\WorkLocation::normalizeCoordinate($state['lng'], 'lng');
+                            $set('latitude', $lat);
+                            $set('longitude', $lng);
+                            $tz = \App\Models\WorkLocation::determineTimezone($lat, $lng, $get('sub_area'));
+                            $set('timezone', $tz);
                         }
                     })
                     ->afterStateHydrated(function ($state, $record, $set): void {

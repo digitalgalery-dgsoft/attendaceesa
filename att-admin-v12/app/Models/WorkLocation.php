@@ -28,6 +28,16 @@ class WorkLocation extends Model
             if (isset($location->longitude)) {
                 $location->longitude = static::normalizeCoordinate($location->longitude, 'lng');
             }
+            // Otomatis sinkronisasi zona waktu jika kosong atau saat titik koordinat diperbarui
+            if (empty($location->timezone) || $location->isDirty(['latitude', 'longitude'])) {
+                if (isset($location->latitude) && isset($location->longitude)) {
+                    $location->timezone = static::determineTimezone(
+                        (float) $location->latitude,
+                        (float) $location->longitude,
+                        $location->sub_area ?? null
+                    );
+                }
+            }
         });
     }
 
@@ -130,6 +140,148 @@ class WorkLocation extends Model
         }
 
         return null;
+    }
+
+    protected static ?array $cityTimezoneCache = null;
+
+    /**
+     * Otomatis menentukan zona waktu (WIB, WITA, WIT) berdasarkan koordinat GPS atau sub_area kota.
+     */
+    public static function determineTimezone(?float $lat = null, ?float $lng = null, ?string $subArea = null): string
+    {
+        // Prioritas 1: Titik koordinat presisi GPS
+        if ($lat !== null && $lng !== null && !($lat == 0.0 && $lng == 0.0)) {
+            return static::determineTimezoneFromCoordinates($lat, $lng);
+        }
+
+        // Prioritas 2: Nama Sub Area / Kota
+        if (!empty($subArea)) {
+            $tz = static::determineTimezoneFromSubArea($subArea);
+            if ($tz) return $tz;
+        }
+
+        return 'Asia/Jakarta';
+    }
+
+    /**
+     * Deteksi zona waktu (WIB, WITA, WIT) secara cerdas dan akurat dari koordinat Latitude & Longitude Indonesia.
+     */
+    public static function determineTimezoneFromCoordinates(?float $lat, ?float $lng): string
+    {
+        if ($lat === null || $lng === null) {
+            return 'Asia/Jakarta';
+        }
+
+        // Fallback untuk koordinat di luar wilayah umum Indonesia
+        if ($lng < 95.0 || $lng > 141.5 || $lat < -11.5 || $lat > 6.5) {
+            if ($lng >= 125.0) return 'Asia/Jayapura';
+            if ($lng >= 115.0) return 'Asia/Makassar';
+            return 'Asia/Jakarta';
+        }
+
+        // 1. WIT (Waktu Indonesia Timur / UTC+9 / Asia/Jayapura)
+        // Papua & Maluku: Timur garis 125°BT kecuali Kepulauan NTT (selatan -8.1°LS) dan Talaud/Sangihe
+        if ($lng >= 129.0) {
+            return 'Asia/Jayapura';
+        }
+        if ($lng >= 125.0) {
+            // Kepulauan NTT (Timor, Rote, Alor, dll.) di selatan -8.1°LS -> WITA
+            if ($lat <= -8.1) {
+                return 'Asia/Makassar';
+            }
+            // Sulawesi Utara kepulauan (Talaud/Sangihe) di utara 2.0°LU dan barat 127.2°BT -> WITA
+            if ($lat >= 2.0 && $lng <= 127.2) {
+                return 'Asia/Makassar';
+            }
+            // Maluku & Maluku Utara (Halmahera, Ambon, Seram, Buru, Ternate, Tidore, dll.) -> WIT
+            return 'Asia/Jayapura';
+        }
+
+        // 2. WITA (Waktu Indonesia Tengah / UTC+8 / Asia/Makassar)
+        // Bali, NTB, NTT, Sulawesi, Kalsel, Kaltim, Kaltara
+        // Bali (mulai dari Selat Bali ~114.43°BT hingga 115.8°BT, lat -8.0°LS s/d -9.2°LS)
+        if ($lng >= 114.43 && $lat <= -8.0 && $lat >= -9.2 && $lng <= 115.8) {
+            return 'Asia/Makassar';
+        }
+
+        // NTB & NTT (Selatan -7.5°LS, Timur 115.7°BT)
+        if ($lat <= -7.5 && $lng >= 115.7) {
+            return 'Asia/Makassar';
+        }
+
+        // Sulawesi & sekitarnya (Bujur >= 118.5°BT)
+        if ($lng >= 118.5) {
+            return 'Asia/Makassar';
+        }
+
+        // Kalimantan Timur & Utara (Utara -2.5°LS, Timur 115.2°BT)
+        if ($lat >= -2.5 && $lng >= 115.2) {
+            return 'Asia/Makassar';
+        }
+
+        // Kalimantan Selatan (Kalsel berbatasan dengan Kalteng di sekitar 114.35°BT, lat -1.2° s/d -4.5°)
+        if ($lat <= -1.2 && $lat >= -4.5 && $lng >= 114.35) {
+            return 'Asia/Makassar';
+        }
+
+        // 3. WIB (Waktu Indonesia Barat / UTC+7 / Asia/Jakarta)
+        // Standar untuk seluruh Sumatra, Jawa, Madura, Kalimantan Barat, dan Kalimantan Tengah
+        return 'Asia/Jakarta';
+    }
+
+    /**
+     * Deteksi zona waktu dari nama Sub Area / Kota berdasarkan dataset provinsi tb_kota.csv.
+     */
+    public static function determineTimezoneFromSubArea(?string $subArea): ?string
+    {
+        if (empty($subArea)) return null;
+
+        if (static::$cityTimezoneCache === null) {
+            static::$cityTimezoneCache = [];
+            $file = database_path('data/tb_kota.csv');
+            if (!file_exists($file)) $file = base_path('../tb_kota.csv');
+            if (!file_exists($file)) $file = base_path('tb_kota.csv');
+            if (!file_exists($file)) $file = 'G:\My File\Project APlikasi Absensi\New\tb_kota.csv';
+
+            if (file_exists($file)) {
+                $handle = fopen($file, 'r');
+                fgetcsv($handle); // header
+                while (($row = fgetcsv($handle)) !== false) {
+                    if (isset($row[1]) && isset($row[2])) {
+                        $rawCity = strtolower(trim($row[1]));
+                        $cleanCity = preg_replace('/^(kota|kabupaten|kab\.)\s+/i', '', $rawCity);
+                        $prov = strtolower(trim($row[2]));
+
+                        if (str_contains($prov, 'maluku') || str_contains($prov, 'papua')) {
+                            $tz = 'Asia/Jayapura'; // WIT
+                        } elseif (
+                            str_contains($prov, 'bali') ||
+                            str_contains($prov, 'nusa tenggara') ||
+                            str_contains($prov, 'ntb') ||
+                            str_contains($prov, 'ntt') ||
+                            str_contains($prov, 'sulawesi') ||
+                            str_contains($prov, 'gorontalo') ||
+                            str_contains($prov, 'kalimantan selatan') ||
+                            str_contains($prov, 'kalimantan timur') ||
+                            str_contains($prov, 'kalimantan utara')
+                        ) {
+                            $tz = 'Asia/Makassar'; // WITA
+                        } else {
+                            $tz = 'Asia/Jakarta'; // WIB
+                        }
+
+                        static::$cityTimezoneCache[$rawCity] = $tz;
+                        static::$cityTimezoneCache[$cleanCity] = $tz;
+                    }
+                }
+                fclose($handle);
+            }
+        }
+
+        $lookup = strtolower(trim($subArea));
+        $cleanLookup = preg_replace('/^(kota|kabupaten|kab\.)\s+/i', '', $lookup);
+
+        return static::$cityTimezoneCache[$lookup] ?? static::$cityTimezoneCache[$cleanLookup] ?? null;
     }
 
     protected $casts = [

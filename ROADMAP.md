@@ -2555,5 +2555,24 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Menyalin `tb_kota.csv` ke dalam `att-admin-v12/database/data/tb_kota.csv` dan memperbarui `WorkLocationForm.php` agar membaca dari `database_path('data/tb_kota.csv')` dengan fallback dinamis, sehingga dropdown `sub_area` berfungsi sempurna di server Linux (staging dan production).
       - **5. Migrasi Optimasi Presisi Kolom (`2026_09_30_120000_optimize_work_locations_coordinates_precision.php`)**:
         - Membuat migrasi database untuk memperlebar kolom `latitude` dan `longitude` pada tabel `work_locations` dari `NUMERIC(10, 7)` menjadi `NUMERIC(11, 8)` agar mendukung presisi hingga 8 digit desimal dan mencegah numeric overflow pada PostgreSQL/MySQL.
+- [x] **Milestone 60: Otomatisasi Deteksi Zona Waktu (WIB, WITA, WIT) Berdasarkan Titik Koordinat GPS & Sub Area Kota** (Selesai 30 September 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Pengguna menanyakan apakah pemilihan zona waktu (`WIB`, `WITA`, `WIT`) pada master lokasi kerja (*Work Location*) bisa berjalan otomatis mengikuti titik koordinatnya tanpa harus dipilih secara manual satu per satu.
+    - **Solusi & Implementasi**:
+      - **1. Algoritma Geospasial Deteksi Zona Waktu Indonesia (`WorkLocation.php`)**:
+        - Mengembangkan method statis `WorkLocation::determineTimezoneFromCoordinates($lat, $lng)` yang memetakan batas geografis garis waktu Indonesia (WIB UTC+7 `Asia/Jakarta`, WITA UTC+8 `Asia/Makassar`, WIT UTC+9 `Asia/Jayapura`) dengan presisi tinggi:
+          - Menangani pembagian wilayah Bali (WITA) vs Jawa Timur (WIB) pada Selat Bali (~114.43°BT).
+          - Menangani pembagian Kalimantan Barat & Tengah (WIB) vs Kalimantan Selatan, Timur & Utara (WITA).
+          - Menangani pembagian Sulawesi & NTT (WITA) vs Maluku & Papua (WIT).
+        - Menambahkan method `WorkLocation::determineTimezoneFromSubArea($subArea)` yang mencocokkan nama kota/kabupaten dengan dataset provinsi `tb_kota.csv`.
+        - Menggabungkan keduanya dalam method serbaguna `WorkLocation::determineTimezone($lat, $lng, $subArea)`.
+      - **2. Reaktivitas Form Filament Admin (`WorkLocationForm.php`)**:
+        - Mengintegrasikan deteksi otomatis pada field `latitude`, `longitude`, pin marker peta Leaflet (`location`), pencarian alamat OpenStreetMap (`search_address`), dan pemilihan kota/kabupaten (`sub_area`).
+        - Begitu admin mengetikkan koordinat, memindahkan pin peta, atau menempelkan link Google Maps, dropdown **Zona Waktu** seketika berganti secara live dan otomatis ke zona waktu yang sesuai (WIB, WITA, atau WIT).
+      - **3. Hook Model & Halaman Form (`WorkLocation.php`, `CreateWorkLocation.php`, `EditWorkLocation.php`)**:
+        - Memperbarui `fillCoordsFromGmaps` pada modal ekstraksi Google Maps agar langsung menyinkronkan zona waktu ke form.
+        - Memperbarui `mutateFormDataBeforeCreate` dan `mutateFormDataBeforeSave` agar memastikan data timezone yang disimpan ke database selalu akurat.
+        - Memperbarui event Eloquent `static::saving(...)` pada model `WorkLocation` agar lokasi yang dibuat atau diupdate otomatis memiliki timezone yang benar.
+
 
 
