@@ -2534,6 +2534,42 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Memperbarui `fillCoordsFromGmaps` pada modal ekstraksi Google Maps agar langsung menyinkronkan zona waktu ke form.
         - Memperbarui `mutateFormDataBeforeCreate` dan `mutateFormDataBeforeSave` agar memastikan data timezone yang disimpan ke database selalu akurat.
         - Memperbarui event Eloquent `static::saving(...)` pada model `WorkLocation` agar lokasi yang dibuat atau diupdate otomatis memiliki timezone yang benar.
+- [x] **Milestone 61: Fitur Pemilihan Akses Panel (Dashboard Admin vs Portal Prinsiple) pada Manajemen User & Perbaikan Redirection AS Wings Surya** (Selesai 30 September 2026)
+    - **Latar Belakang & Masalah**:
+      - Ketika membuat user baru untuk AS (Account Supervisor / Area Supervisor) Wings Surya dengan role `AS / AE Inhouse` dan prinsiple yang di-handle `PT WINGS SURYA`, saat user login sistem secara keliru me-redirect mereka ke Portal Prinsiple (`/portal`), bukan ke Dashboard Admin (`/admin`).
+      - Penyebab: Method `isPrincipalUser()` di `User.php` sebelumnya menganggap setiap user yang memiliki kaitan dengan Prinsiple dan tidak memiliki role 'Admin', 'HR', atau 'Manager' sebagai Client/Principal User. Akibatnya, akun AS dianggap akun client dan akses ke Dashboard Admin terblokir.
+    - **Solusi & Implementasi**:
+      - **1. Migrasi Database Kolom Akses Login (`2026_09_30_150000_add_login_destination_to_users_table.php`)**:
+        - Menambahkan kolom `login_destination` bertipe `string(30)` dengan nilai default `'admin'` pada tabel `users`.
+        - Mengamankan data user eksisting: role Principal/Client otomatis disetel ke `portal`, sedangkan user internal (Super Admin, Admin, HR, Manager, AS/AE Inhouse) disetel ke `admin`.
+      - **2. Form Manajemen User Filament (`UserForm.php` & `User.php`)**:
+        - Menambahkan dropdown field **"Akses Panel / Portal Login"** pada form Create & Edit User Filament dengan opsi:
+          - `admin` => **Dashboard Admin (`/admin`)** (Default)
+          - `portal` => **Portal Prinsiple (`/portal`)**
+        - Menambahkan `login_destination` ke `$fillable` model `User`.
+        - Memperbarui `isPrincipalUser()` agar memprioritaskan nilai eksplisit `login_destination`, serta memastikan role internal (`AS / AE Inhouse`, `AS`, `AE`, `Admin`, `HR`, `Manager`) tidak pernah dianggap client.
+      - **3. Tabel Daftar User (`UsersTable.php`)**:
+        - Menambahkan kolom badge **"Akses Login"** (`Dashboard Admin` warna primary, `Portal Prinsiple` warna warning) agar terlihat jelas tujuan login masing-masing akun.
+      - **4. Redirection Login Controller (`TenantAuthController.php`)**:
+        - Memperbarui `showLoginForm()` dan `login()` agar selalu memeriksa `login_destination`. Jika disetel ke `admin`, user otomatis diarahkan ke `/admin` meskipun login melalui halaman login tenant whitelabel.
+      - **5. Tombol Pintas di Portal Sidebar (`layout.blade.php`)**:
+        - Menambahkan tombol menu cepat **"Dashboard Admin"** pada bagian *Akses Cepat* di sidebar Portal Prinsiple bagi akun internal / AS, sehingga user dapat berpindah ke Dashboard Admin dengan 1 klik.
+- [x] **Milestone 62: Penonaktifan Klik Baris (Row Click Navigation) pada Master Work Location, Master Employee, dan Master Shift** (Selesai 30 September 2026)
+    - **Latar Belakang & Masalah**:
+      - Pada halaman Master Shift, Master Employee, dan Master Work Location, mengklik baris mana saja pada tabel langsung membuka halaman edit/detail. Hal ini menyulitkan pengguna saat ingin memilih/menyeleksi teks (highlight) untuk disalin (copy) seperti NIK, Nama Karyawan, Kode Shift, Jam Kerja, Alamat Toko, Koordinat, dsb.
+      - Di Filament, method bawaan `ListRecords::table()` secara otomatis menetapkan `recordAction` ke aksi `'edit'` setelah konfigurasi Resource dieksekusi, sehingga baris tabel dibungkus ke dalam elemen `<button wire:click="edit">` meskipun `recordUrl` di tabel sudah diatur null.
+    - **Solusi & Implementasi**:
+      - **1. Override Method Table di Level List Page**:
+        - Meng-override method `table(Table $table): Table` pada:
+          - `ListWorkLocations.php` (`app/Filament/Resources/WorkLocations/Pages/ListWorkLocations.php`)
+          - `ListEmployees.php` (`app/Filament/Resources/Employees/Pages/ListEmployees.php`)
+          - `ListShifts.php` (`app/Filament/Resources/Shifts/Pages/ListShifts.php`)
+        - Menjalankan `parent::table($table)->recordUrl(null)->recordAction(null);` sehingga menghapus setelan default `edit` dari `ListRecords` secara tuntas.
+      - **2. Konfigurasi Tabel Resource (`WorkLocationsTable.php`, `EmployeesTable.php`, `ShiftsTable.php`)**:
+        - Menerapkan `->recordUrl(null)->recordAction(null)` pada table schema.
+        - Memastikan tombol aksi **Edit** tetap tersedia di kolom aksi sisi kanan baris untuk navigasi ke formulir edit/detail.
+      - **3. Hasil Akhir**: Baris tabel kini murni elemen `<div>` standar tanpa aksi klik, teks dapat diseleksi dan di-copy (`Ctrl+C`) dengan leluasa.
+
 
 
 
