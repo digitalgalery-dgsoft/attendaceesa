@@ -25,19 +25,16 @@ class ServerGatewayController extends Controller
         ]);
 
         $nik = trim($request->input('nik'));
-        $employee = Employee::where('nik', $nik)
-            ->orWhere('no_ktp', $nik)
-            ->orWhere('id_card_number', $nik)
+        $employee = Employee::where('employee_no', $nik)
+            ->orWhereRaw('LOWER(employee_no) = ?', [strtolower($nik)])
             ->first();
 
         $servers = config('multiserver.servers', []);
         $assignedServerKey = 'server_1'; // default
-        $companyName = 'PT Arina Multi Karya';
+        $companyName = ($employee && $employee->company) ? $employee->company->name : 'PT Arina Multi Karya';
+        $empComp = strtolower($companyName);
 
-        if ($employee && $employee->company_name) {
-            $companyName = $employee->company_name;
-            $empComp = strtolower($companyName);
-
+        if ($employee && $employee->company) {
             foreach ($servers as $key => $serverConfig) {
                 foreach ($serverConfig['companies'] as $comp) {
                     if (str_contains($empComp, strtolower($comp)) || str_contains(strtolower($comp), $empComp)) {
@@ -54,7 +51,7 @@ class ServerGatewayController extends Controller
             'status' => 'success',
             'data' => [
                 'nik' => $nik,
-                'employee_name' => $employee ? $employee->name : null,
+                'employee_name' => $employee ? $employee->full_name : null,
                 'company_name' => $companyName,
                 'assigned_server' => $assignedServerKey,
                 'server_name' => $server['name'],
@@ -84,19 +81,13 @@ class ServerGatewayController extends Controller
             ->orWhereRaw('LOWER(username) = ?', [strtolower($login)])
             ->orWhereHas('employee', function ($q) use ($login) {
                 $q->whereRaw('LOWER(employee_no) = ?', [strtolower($login)])
-                  ->orWhereRaw('LOWER(nik) = ?', [strtolower($login)])
-                  ->orWhere('phone', $login)
-                  ->orWhere('no_ktp', $login)
-                  ->orWhere('id_card_number', $login);
+                  ->orWhere('phone', $login);
             })->with('employee.company')->first();
 
         if (!$user) {
             // Cek langsung ke model Employee jika user belum dibuat
             $employee = Employee::whereRaw('LOWER(employee_no) = ?', [strtolower($login)])
-                ->orWhereRaw('LOWER(nik) = ?', [strtolower($login)])
                 ->orWhere('phone', $login)
-                ->orWhere('no_ktp', $login)
-                ->orWhere('id_card_number', $login)
                 ->first();
 
             if ($employee && $employee->user_id) {
@@ -117,7 +108,7 @@ class ServerGatewayController extends Controller
         // Resolve Target Server for Dynamic Base URL
         $servers = config('multiserver.servers', []);
         $assignedServerKey = 'server_1';
-        $companyName = $user->employee->company_name ?? 'ESA Groups';
+        $companyName = $user->employee?->company?->name ?? 'ESA Groups';
         $empComp = strtolower($companyName);
 
         foreach ($servers as $key => $serverConfig) {
@@ -144,12 +135,12 @@ class ServerGatewayController extends Controller
                 ],
                 'employee' => $user->employee ? [
                     'id' => $user->employee->id,
-                    'nik' => $user->employee->nik,
-                    'name' => $user->employee->name,
-                    'company_name' => $user->employee->company_name,
-                    'position' => $user->employee->position ?? $user->employee->job_position ?? null,
-                    'department' => $user->employee->department ?? null,
-                    'is_supervisor' => Employee::where('parent_id', $user->employee->id)->orWhere('supervisor_nik', $user->employee->nik)->exists(),
+                    'nik' => $user->employee->employee_no,
+                    'name' => $user->employee->full_name,
+                    'company_name' => $user->employee->company?->name,
+                    'position' => $user->employee->position?->name,
+                    'department' => $user->employee->department?->name,
+                    'is_supervisor' => Employee::where('supervisor_id', $user->employee->id)->exists(),
                 ] : null,
                 'routing' => [
                     'assigned_server' => $assignedServerKey,
@@ -177,22 +168,31 @@ class ServerGatewayController extends Controller
             ], 404);
         }
 
-        // Subordinates by parent_id or supervisor_nik across all companies in local database
-        $subordinates = Employee::where(function ($q) use ($employee) {
-            $q->where('parent_id', $employee->id)
-              ->orWhere('supervisor_nik', $employee->nik)
-              ->orWhere('supervisor_nik', $employee->no_ktp);
-        })
-        ->select(['id', 'nik', 'name', 'company_name', 'position', 'phone', 'is_active', 'photo'])
-        ->get();
+        // Subordinates by supervisor_id across all companies in local database
+        $subordinates = Employee::where('supervisor_id', $employee->id)
+            ->with(['company', 'position'])
+            ->select(['id', 'company_id', 'position_id', 'employee_no', 'full_name', 'phone', 'is_active', 'photo'])
+            ->get()
+            ->map(function ($sub) {
+                return [
+                    'id' => $sub->id,
+                    'nik' => $sub->employee_no,
+                    'name' => $sub->full_name,
+                    'company_name' => $sub->company?->name,
+                    'position' => $sub->position?->name,
+                    'phone' => $sub->phone,
+                    'is_active' => $sub->is_active,
+                    'photo' => $sub->photo,
+                ];
+            });
 
         return response()->json([
             'status' => 'success',
             'data' => [
                 'supervisor' => [
-                    'nik' => $employee->nik,
-                    'name' => $employee->name,
-                    'company' => $employee->company_name,
+                    'nik' => $employee->employee_no,
+                    'name' => $employee->full_name,
+                    'company' => $employee->company?->name,
                 ],
                 'total_subordinates' => $subordinates->count(),
                 'subordinates' => $subordinates,

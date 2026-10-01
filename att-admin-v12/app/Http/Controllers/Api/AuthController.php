@@ -31,11 +31,10 @@ class AuthController extends Controller
         $password = $request->password;
         $lowerLoginId = strtolower($loginId);
 
-        // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email, NIK, employee_no, atau nomor HP (Case-Insensitive)
+        // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email, NIK (employee_no), atau nomor HP (Case-Insensitive)
         $candidateEmployees = Employee::where(function($query) use ($loginId, $lowerLoginId) {
                 $query->whereRaw('LOWER(email) = ?', [$lowerLoginId])
                       ->orWhereRaw('LOWER(employee_no) = ?', [$lowerLoginId])
-                      ->orWhereRaw('LOWER(nik) = ?', [$lowerLoginId])
                       ->orWhere('phone', $loginId);
             })
             ->where(function($q) use ($lowerLoginId) {
