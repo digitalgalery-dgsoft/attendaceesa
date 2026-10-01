@@ -2626,5 +2626,34 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **6. Scoping Dropdown Shift pada Penjadwalan & Roster (`ListEmployeeSchedules.php` & `EmployeeScheduleRoster.php`)**:
         - Memperbarui pemanggilan opsi shift kerja pada dialog modal pembuatan jadwal agar menggunakan `Shift::forUser()`.
 
+---
 
+## 🚀 Rencana Fitur Mendatang (Future Implementation Plans)
 
+- [ ] **Rencana Fitur: Smart Route Optimization Engine Berbasis Real Road Network (Rute Jalan Raya Nyata)**
+    - **Latar Belakang & Kebutuhan**:
+      - Pengguna dan manajemen membutuhkan fitur rekomendasi rute kunjungan (*Visit Route*) terdekat untuk tenaga lapangan (SPG, Sales Force, Field Officer) dari titik awal (misal Kantor Cabang / Posisi Live GPS) ke multi-toko jadwal harian secara berantai.
+      - Perhitungan jarak wajib menggunakan **jaringan jalan raya aspal riil (*real road network*)**, bukan garis lurus (*Haversine*), agar memperhitungkan aturan jalan satu arah (*one-way*), separator pembatas jalan, putaran balik (*U-turn*), jembatan, dan estimasi waktu tempuh sesungguhnya.
+    - **Dokumen Terkait**:
+      - Proposal Manajemen (PowerPoint Widescreen 16:9): `PROPOSAL_SMART_ROUTE_OPTIMIZATION_MANAGEMENT.pptx`
+      - Dokumen Spesifikasi Teknis: `docs/SMART_ROUTE_OPTIMIZATION_PLAN.md`
+    - **Rencana Tahapan Eksekusi**:
+      - **Tahap 1: Core Engine & API Backend (Laravel 12)**:
+        - Membuat service `App\Services\RouteOptimizationService` yang mengintegrasikan engine OSRM (Open Source Routing Machine, biaya Rp 0) dengan fallback cerdas ke Google Maps Routes/Distance Matrix API.
+        - Menerapkan algoritma *Travelling Salesperson Problem* (TSP / Nearest Neighbor Heuristic + 2-Opt) untuk menyelesaikan rute kunjungan multi-toko (<150ms).
+        - Menyiapkan mekanisme caching matriks jarak antar master `work_locations` untuk meminimalkan beban request API.
+        - Menyediakan endpoint API `POST /api/v1/itineraries/optimize-route`.
+      - **Tahap 2: Integrasi Web Admin (Filament v4 Dashboard)**:
+        - Menambahkan tombol aksi `⚡ Optimalkan Urutan Rute (Rekomendasi Jalan Raya)` pada form pembuatan & edit jadwal kunjungan (`ItineraryForm.php`).
+        - Fitur pemilihan titik awal keberangkatan (Kantor Cabang, Titik Karyawan, atau Toko Pertama).
+        - Form otomatis menyusun ulang (*re-order*) `sequence` toko (1, 2, 3...) dari terdekat ke terjauh serta menampilkan notifikasi total km dan durasi waktu tempuh.
+        - Menampilkan pratinjau garis rute jalan raya interaktif pada peta admin.
+      - **Tahap 3: Integrasi Aplikasi Mobile (Flutter `att-mobile`)**:
+        - Memperbarui tampilan daftar kunjungan harian pada `attendance_location_screen.dart` dengan badge urutan nomor (1, 2, 3...) dan indikator jarak km & menit.
+        - Menambahkan tombol `📍 Re-optimalkan Rute dari Posisi Saya` yang memanfaatkan GPS live perangkat untuk menyusun ulang sisa toko yang belum dikunjungi.
+        - Integrasi tombol 1-klik navigasi turn-by-turn ke Google Maps / Waze.
+      - **Tahap 4: Uji Coba Pilot Lapangan (1 Wilayah / Prinsiple)**:
+        - Uji coba lapangan pada 1 tim/prinsiple (misal Wings Surya) untuk validasi kecocokan rute riil dan pengumpulan feedback pengguna.
+      - **Tahap 5: Full Rollout & Dashboard Analitik KPI**:
+        - Peluncuran menyeluruh ke seluruh cabang dan prinsiple.
+        - Dashboard analitik KPI: Monitoring total kilometer terhemat, efisiensi estimasi BBM (20%–35%), dan perbandingan rute terencana (*planned*) vs rute aktual (*actual GPS track*).
