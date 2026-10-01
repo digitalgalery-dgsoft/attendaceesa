@@ -628,6 +628,9 @@ class ReportingApiController extends Controller
                 'total_machines_count' => $totalMachinesCount,
                 'remaining_machines_count' => $remainingMachinesCount,
                 'store_machines' => $storeMachines,
+                'submitted_tools' => ($t->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($t->code, 'MBR-TOOLS') || str_contains($t->code, 'WINGS-TOOLS')) ? ($submittedTools ?? []) : [],
+                'total_tools_count' => ($t->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($t->code, 'MBR-TOOLS') || str_contains($t->code, 'WINGS-TOOLS')) ? ($totalTools ?? 13) : 0,
+                'remaining_tools_count' => ($t->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($t->code, 'MBR-TOOLS') || str_contains($t->code, 'WINGS-TOOLS')) ? max(0, ($totalTools ?? 13) - count($submittedTools ?? [])) : 0,
                 'assigned_positions' => $t->positions->pluck('name')->values()->toArray(),
                 'assigned_employees' => $t->employees->pluck('full_name')->values()->toArray(),
                 'icon' => $t->icon ?? 'document-text',
@@ -907,6 +910,75 @@ class ReportingApiController extends Controller
                 $normalizedValues[$strK] = $v;
                 $normalizedValues[strtolower(trim($strK))] = $v;
                 $normalizedValues[strtolower(str_replace([' ', '-'], '_', trim($strK)))] = $v;
+            }
+
+            // Validasi Khusus Template Tools Wings Surya:
+            $isWingsToolsTemplate = ($template->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($template->code, 'MBR-TOOLS') || str_contains($template->code, 'WINGS-TOOLS'));
+            if ($isWingsToolsTemplate) {
+                // Ambil nilai nama_tools dari request
+                $inputToolName = trim((string)($normalizedValues['nama_tools'] ?? ''));
+                if (empty($inputToolName)) {
+                    foreach ($normalizedValues as $k => $v) {
+                        if (str_contains(strtolower($k), 'tools') && is_string($v) && strlen($v) > 2) {
+                            $inputToolName = trim($v);
+                            break;
+                        }
+                    }
+                }
+
+                // Ambil riwayat submission hari ini untuk template ini oleh karyawan ini
+                $todayToolsQuery = ReportSubmission::where('report_template_id', $template->id)
+                    ->where('employee_id', $employee->id)
+                    ->whereIn(DB::raw('DATE(submitted_at)'), $checkDates)
+                    ->with('values');
+
+                if ($workLocationId) {
+                    $todayToolsQuery->where(function ($q) use ($workLocationId, $storeName) {
+                        $q->where('work_location_id', $workLocationId);
+                        if (!empty($storeName) && $storeName !== 'Lokasi Kunjungan Terdaftar') {
+                            $q->orWhere('store_name', $storeName);
+                        }
+                    });
+                }
+
+                $existingToolSubs = $todayToolsQuery->get();
+
+                $submittedToolNames = [];
+                foreach ($existingToolSubs as $sub) {
+                    foreach ($sub->values as $v) {
+                        $fn = strtolower($v->field_name ?? '');
+                        if ($fn === 'nama_tools' || str_contains($fn, 'tools')) {
+                            $tv = trim((string)($v->value_text ?? ''));
+                            if ($tv !== '') {
+                                $submittedToolNames[] = strtolower($tv);
+                            }
+                        }
+                    }
+                }
+                $submittedToolNames = array_values(array_unique($submittedToolNames));
+
+                $toolsField = $template->fields->first(function ($f) {
+                    return strtolower($f->field_name) === 'nama_tools';
+                });
+                $maxToolsCount = (!empty($toolsField?->options) && is_array($toolsField->options)) ? count($toolsField->options) : 13;
+
+                // 1. Tolak jika seluruh tools (13 tools) sudah selesai dilaporkan hari ini
+                if (count($submittedToolNames) >= $maxToolsCount && $maxToolsCount > 0) {
+                    return response()->json([
+                        'status' => 'error',
+                        'success' => false,
+                        'message' => "Seluruh {$maxToolsCount} tools Wings Surya untuk toko ini sudah selesai dilaporkan hari ini. Form laporan telah ditutup dan tidak dapat menerima pengiriman lagi.",
+                    ], 422);
+                }
+
+                // 2. Tolak jika item tool yang sama dikirim ulang hari ini
+                if (!empty($inputToolName) && in_array(strtolower($inputToolName), $submittedToolNames)) {
+                    return response()->json([
+                        'status' => 'error',
+                        'success' => false,
+                        'message' => "Tools '{$inputToolName}' sudah selesai dilaporkan hari ini. Silakan pilih item tools yang belum dilaporkan.",
+                    ], 422);
+                }
             }
 
             // Idempotency: Cegah double submit jika item dan form yang sama persis dikirim dalam 10 detik.

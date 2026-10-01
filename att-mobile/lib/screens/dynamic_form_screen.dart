@@ -121,8 +121,26 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   // Multi-Tools & Sequential Submission Tracking (Wings Surya MBR Tools)
   final Set<String> _submittedToolsNames = {};
 
+  bool _isWingsToolsCompleted() {
+    if (!_isWingsToolsTemplate()) return false;
+    if (widget.editSubmission != null) return false;
+    if (widget.template.isCompletedToday) return true;
+    final total = _getTotalWingsToolsCount();
+    return total > 0 && (_submittedToolsNames.length >= total || _getRemainingWingsToolsCount() == 0);
+  }
+
   void _initSubmittedTools() {
     if (!_isWingsToolsTemplate()) return;
+
+    // 1. Ambil dari template server jika tersedia (dari submitted_tools)
+    for (final st in widget.template.submittedTools) {
+      final clean = st.trim().toLowerCase();
+      if (clean.isNotEmpty) {
+        _submittedToolsNames.add(clean);
+      }
+    }
+
+    // 2. Ambil dari riwayat lokal
     final repProv = Provider.of<DynamicReportingProvider>(context, listen: false);
     final today = DateTime.now();
     for (final sub in repProv.history) {
@@ -137,6 +155,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               _submittedToolsNames.add(tText);
             }
           }
+        }
+      }
+    }
+
+    // 3. Jika template.isCompletedToday bernilai true dari server, pastikan seluruh item ditandai selesai
+    if (widget.template.isCompletedToday && widget.editSubmission == null) {
+      for (final t in _getWingsToolsList()) {
+        final clean = t.trim().toLowerCase();
+        if (clean.isNotEmpty) {
+          _submittedToolsNames.add(clean);
         }
       }
     }
@@ -2384,6 +2412,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
     // Validasi Khusus Laporan Tools Wings Surya
     if (_isWingsToolsTemplate()) {
+      if (_isWingsToolsCompleted()) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Laporan Sudah Selesai'),
+          description: const Text('Seluruh 13 tools Wings Surya sudah selesai dilaporkan untuk toko ini hari ini. Form telah terkunci dan tidak dapat disubmit lagi.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        return;
+      }
+
       final statusVal = _getFieldValueByName('status_ketersediaan')?.toUpperCase().trim();
       if (statusVal == null || (statusVal != 'ADA' && statusVal != 'TIDAK')) {
         toastification.show(
@@ -2585,15 +2624,29 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     // Cegah pengiriman ganda untuk tools Wings Surya yang telah dilaporkan hari ini
-    if (widget.editSubmission == null && _isWingsToolsTemplate() && submittedCategoryValue.isNotEmpty && _isToolSubmitted(submittedCategoryValue)) {
-      toastification.show(
-        context: context,
-        type: ToastificationType.warning,
-        title: const Text('Tools Sudah Dilaporkan'),
-        description: Text('Tools "$submittedCategoryValue" sudah dilaporkan hari ini. Silakan pilih tools lain yang belum dilaporkan.'),
-        autoCloseDuration: const Duration(seconds: 4),
-      );
-      return;
+    if (widget.editSubmission == null && _isWingsToolsTemplate()) {
+      final selectedTool = _getFieldValueByName('nama_tools')?.trim();
+      final toolToCheck = (selectedTool != null && selectedTool.isNotEmpty) ? selectedTool : submittedCategoryValue;
+      if (_isWingsToolsCompleted()) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.error,
+          title: const Text('Laporan Tools Selesai'),
+          description: const Text('Seluruh 13 tools Wings Surya sudah selesai dilaporkan untuk toko ini hari ini. Form telah ditutup.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        return;
+      }
+      if (toolToCheck.isNotEmpty && _isToolSubmitted(toolToCheck)) {
+        toastification.show(
+          context: context,
+          type: ToastificationType.warning,
+          title: const Text('Tools Sudah Dilaporkan'),
+          description: Text('Tools "$toolToCheck" sudah dilaporkan hari ini. Silakan pilih tools lain yang belum dilaporkan.'),
+          autoCloseDuration: const Duration(seconds: 4),
+        );
+        return;
+      }
     }
 
     setState(() => _isSubmitting = true);
@@ -3144,6 +3197,62 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
             const SizedBox(height: 16),
 
+            // Banner Khusus: Semua Tools Wings Surya Selesai Dilaporkan
+            if (_isWingsToolsCompleted())
+              Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isDarkMode ? const Color(0xFF143024) : const Color(0xFFE8F5E9),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF149A6E).withOpacity(0.5),
+                    width: 1.2,
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF149A6E).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.verified_rounded,
+                        color: Color(0xFF149A6E),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Semua Tools Telah Selesai Dilaporkan ✓',
+                            style: TextStyle(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.bold,
+                              color: isDarkMode ? Colors.white : const Color(0xFF0F5132),
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Seluruh 13 item tools Wings Surya telah lengkap dilaporkan untuk toko ini hari ini. Seluruh kolom formulir dinonaktifkan (terkunci) dan pengiriman laporan telah selesai.',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: isDarkMode ? Colors.grey.shade300 : const Color(0xFF155724),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
             // Dynamic Form Fields List
             ...widget.template.fields.map((field) => _buildFieldWidget(
                   field,
@@ -3272,8 +3381,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     final int total = _getTotalWingsToolsCount();
     final int submitted = _submittedToolsNames.length;
     final int remaining = (total - submitted) > 0 ? (total - submitted) : 0;
-    final double progress = total > 0 ? (submitted / total).clamp(0.0, 1.0) : 0.0;
-    final bool isLastTool = remaining <= 1;
+    final bool isAllCompleted = _isWingsToolsCompleted() || remaining == 0 || (total > 0 && submitted >= total);
+    final double progress = isAllCompleted ? 1.0 : (total > 0 ? (submitted / total).clamp(0.0, 1.0) : 0.0);
+    final bool isLastTool = remaining == 1;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3286,7 +3396,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             color: isDarkMode ? const Color(0xFF1E1E2C) : Colors.white,
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: isLastTool
+              color: isAllCompleted || isLastTool
                   ? Colors.green.withOpacity(0.4)
                   : themeColor.withOpacity(0.3),
             ),
@@ -3309,18 +3419,18 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: (isLastTool ? Colors.green : themeColor).withOpacity(0.12),
+                          color: (isAllCompleted || isLastTool ? Colors.green : themeColor).withOpacity(0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
-                          isLastTool ? Icons.task_alt_rounded : Icons.construction_rounded,
+                          isAllCompleted ? Icons.verified_rounded : (isLastTool ? Icons.task_alt_rounded : Icons.construction_rounded),
                           size: 16,
-                          color: isLastTool ? Colors.green : themeColor,
+                          color: isAllCompleted || isLastTool ? Colors.green : themeColor,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        'Progres Pemeriksaan Tools',
+                        isAllCompleted ? 'Pemeriksaan Tools Tuntas' : 'Progres Pemeriksaan Tools',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
@@ -3332,15 +3442,15 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
                     decoration: BoxDecoration(
-                      color: (isLastTool ? Colors.green : themeColor).withOpacity(0.12),
+                      color: (isAllCompleted || isLastTool ? Colors.green : themeColor).withOpacity(0.12),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
-                      '$submitted / $total Selesai',
+                      isAllCompleted ? '$total / $total Selesai ✓' : '$submitted / $total Selesai',
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.bold,
-                        color: isLastTool ? Colors.green : themeColor,
+                        color: isAllCompleted || isLastTool ? Colors.green : themeColor,
                       ),
                     ),
                   ),
@@ -3354,21 +3464,21 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   minHeight: 7,
                   backgroundColor: isDarkMode ? const Color(0xFF2A2A3C) : const Color(0xFFE2E8F0),
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    isLastTool ? Colors.green : themeColor,
+                    isAllCompleted || isLastTool ? Colors.green : themeColor,
                   ),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                isLastTool
-                    ? (remaining == 0
-                        ? 'Seluruh 13 tools telah selesai dilaporkan ✓'
-                        : 'Memeriksa tools terakhir (ke-13). Tombol "Kirim & Selesai" sekarang aktif!')
-                    : 'Sedang memeriksa tools ke-${submitted + 1}. Sisa $remaining tools lagi yang wajib diperiksa.',
+                isAllCompleted
+                    ? 'Seluruh 13 tools telah selesai dilaporkan ✓. Formulir telah dikunci dan tidak dapat diinput lagi.'
+                    : (isLastTool
+                        ? 'Memeriksa tools terakhir (ke-13). Tombol "Kirim & Selesai" sekarang aktif!'
+                        : 'Sedang memeriksa tools ke-${submitted + 1}. Sisa $remaining tools lagi yang wajib diperiksa.'),
                 style: TextStyle(
                   fontSize: 11.5,
-                  color: isLastTool ? Colors.green : subtitleColor,
-                  fontWeight: isLastTool ? FontWeight.bold : FontWeight.normal,
+                  color: isAllCompleted || isLastTool ? Colors.green : subtitleColor,
+                  fontWeight: isAllCompleted || isLastTool ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ],
@@ -3376,7 +3486,23 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         ),
 
         // Sequential Submission Action Buttons
-        if (!isLastTool) ...[
+        if (isAllCompleted) ...[
+          // KETIKA SEMUA TOOLS SUDAH SELESAI DILAPORKAN: FORM TERKUNCI & TIDAK BISA SUBMIT
+          ElevatedButton.icon(
+            onPressed: () => _returnToReportingScreen(),
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 18),
+            label: const Text(
+              'Kembali ke Menu Laporan (Tools Selesai ✓)',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF149A6E),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 2,
+            ),
+          ),
+        ] else if (!isLastTool) ...[
           ElevatedButton.icon(
             onPressed: _isSubmitting ? null : () => _submitForm(isNewInput: true),
             icon: _isSubmitting
@@ -4401,7 +4527,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   ) {
     final fieldKey = field.id.toString();
     final bool isFieldCalculated = _isCalculatedField(field);
-    final bool isFieldReadonly = field.isReadonly || isFieldCalculated;
+    final bool isFieldReadonly = field.isReadonly || isFieldCalculated || _isWingsToolsCompleted();
     final readonlyBgColor = isDarkMode ? Colors.grey.shade900 : const Color(0xFFF1F5F9);
 
     final fieldNameLower = field.fieldName.toLowerCase();

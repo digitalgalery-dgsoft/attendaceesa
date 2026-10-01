@@ -31,6 +31,9 @@ class ReportTemplateModel {
   final int totalMachinesCount;
   final int remainingMachinesCount;
   final List<Map<String, dynamic>> storeMachines;
+  final List<String> submittedTools;
+  final int totalToolsCount;
+  final int remainingToolsCount;
   final List<String> reportDays;
   final List<String> assignedPositions;
   final List<String> assignedEmployees;
@@ -86,6 +89,9 @@ class ReportTemplateModel {
     this.totalMachinesCount = 0,
     this.remainingMachinesCount = 0,
     this.storeMachines = const [],
+    this.submittedTools = const [],
+    this.totalToolsCount = 0,
+    this.remainingToolsCount = 0,
     this.reportDays = const [],
     this.assignedPositions = const [],
     this.assignedEmployees = const [],
@@ -191,6 +197,10 @@ class ReportTemplateModel {
     final remMachines = json['remaining_machines_count'] is num ? (json['remaining_machines_count'] as num).toInt() : (int.tryParse(json['remaining_machines_count']?.toString() ?? '0') ?? (totMachines - parsedSubMachines.length).clamp(0, 9999));
     var rawStoreMachines = json['store_machines'] as List? ?? [];
     List<Map<String, dynamic>> parsedStoreMachines = rawStoreMachines.whereType<Map<String, dynamic>>().toList();
+    var rawSubTools = json['submitted_tools'] as List? ?? [];
+    List<String> parsedSubTools = rawSubTools.map((e) => e.toString()).toList();
+    final totTools = json['total_tools_count'] is num ? (json['total_tools_count'] as num).toInt() : (int.tryParse(json['total_tools_count']?.toString() ?? '0') ?? 0);
+    final remTools = json['remaining_tools_count'] is num ? (json['remaining_tools_count'] as num).toInt() : (int.tryParse(json['remaining_tools_count']?.toString() ?? '0') ?? (totTools - parsedSubTools.length).clamp(0, 9999));
     final oosRef = json['oos_reference'] is Map ? Map<String, dynamic>.from(json['oos_reference'] as Map) : null;
 
     return ReportTemplateModel(
@@ -226,6 +236,9 @@ class ReportTemplateModel {
       totalMachinesCount: totMachines,
       remainingMachinesCount: remMachines,
       storeMachines: parsedStoreMachines,
+      submittedTools: parsedSubTools,
+      totalToolsCount: totTools,
+      remainingToolsCount: remTools,
       reportDays: parsedDays,
       assignedPositions: parsedPositions,
       assignedEmployees: parsedEmployees,
