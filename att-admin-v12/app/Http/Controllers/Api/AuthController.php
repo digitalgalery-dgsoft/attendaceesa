@@ -30,10 +30,12 @@ class AuthController extends Controller
         $loginId = trim($request->email);
         $password = $request->password;
 
-        // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email atau NIK
+        // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email, NIK, employee_no, atau nomor HP
         $candidateEmployees = Employee::where(function($query) use ($loginId) {
                 $query->where('email', $loginId)
-                      ->orWhere('employee_no', $loginId);
+                      ->orWhere('employee_no', $loginId)
+                      ->orWhere('nik', $loginId)
+                      ->orWhere('phone', $loginId);
             })
             ->where('is_active', true)
             ->with(['company', 'principal', 'branch', 'department', 'position', 'user'])
@@ -98,8 +100,21 @@ class AuthController extends Controller
             ], 401);
         }
 
+        // Deteksi apakah akun ini adalah akun tester / reviewer Google Play
+        $isReviewTester = str_contains(strtolower($loginId), 'test') ||
+                          str_contains(strtolower($loginId), 'google') ||
+                          str_contains(strtolower($loginId), 'review') ||
+                          str_contains(strtolower($loginId), '081247') ||
+                          str_contains(strtolower((string)$employee->email), 'test') ||
+                          str_contains(strtolower((string)$employee->email), 'google');
+
         if ($request->filled('device_id')) {
-            if (empty($employee->device_id)) {
+            if ($isReviewTester) {
+                // Jangan kunci akun tester Google Play agar reviewer/bot Google dengan perangkat apa pun bisa login mulus
+                $employee->device_id = $request->device_id;
+                $employee->device_name = $request->device_name;
+                $employee->save();
+            } else if (empty($employee->device_id)) {
                 $employee->device_id = $request->device_id;
                 $employee->device_name = $request->device_name;
                 $employee->save();
