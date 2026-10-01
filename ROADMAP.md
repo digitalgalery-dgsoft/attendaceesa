@@ -2625,6 +2625,43 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Memperbarui `ShiftTemplateExport` agar baris contoh (*sample rows*) pada template Excel menggunakan nama prinsiple yang ditugaskan kepada user tersebut.
       - **6. Scoping Dropdown Shift pada Penjadwalan & Roster (`ListEmployeeSchedules.php` & `EmployeeScheduleRoster.php`)**:
         - Memperbarui pemanggilan opsi shift kerja pada dialog modal pembuatan jadwal agar menggunakan `Shift::forUser()`.
+- [x] **Milestone 64: Pengamanan Akun Demo Google Play Review & Bypass Device Lock Otomatis** (Selesai 01 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Tim Reviewer Google Play Console memerlukan akses login mulus untuk pengujian kepatuhan aplikasi mobile tanpa kendala kunci perangkat (*device lock*), status akun non-aktif, ataupun kesalahan huruf kapital (*case-sensitivity*).
+      - Akun demo resmi yang didaftarkan ke Google Play Console adalah akun `DULUX-DC-001`.
+    - **Solusi & Implementasi**:
+      - **1. Auto-Aktivasi Akun Tester (`AuthController.php`)**:
+        - Menambahkan deteksi otomatis akun reviewer/tester Google (seperti `DULUX-DC-001`, `dulux`, `test`, `google`, `review`, dll.) saat login. Jika akun sempat berstatus *inactive*, sistem otomatis mengaktifkannya kembali (`is_active = true`) secara instan.
+      - **2. Bypass Penguncian Perangkat / Device Lock (`AuthController.php`)**:
+        - Akun demo/reviewer Google dibebaskan dari restriksi `device_id` statis. Perangkat atau automated testing bot Google dengan ID perangkat apa pun diizinkan login tanpa muncul peringatan *"Akun ini sudah ditautkan dengan perangkat lain"*.
+      - **3. Normalisasi Login ID Case-Insensitive**:
+        - Memastikan pencocokan username/NIK/email dilakukan secara *case-insensitive* (`dulux-dc-001` setara dengan `DULUX-DC-001`).
+      - **4. Panduan & Draft Korespondensi Resmi Google Play**:
+        - Menyusun surat penjelasan resmi dan instruksi pengujian kredensial login akun demo untuk mempercepat proses peninjauan dan persetujuan di Google Play Console.
+- [x] **Milestone 65: Proteksi & Penguncian Total Formulir Laporan Tools Wings Surya** (Selesai 01 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Ditemukan kasus di mana karyawan/SPG masih dapat menginput dan mengirimkan formulir laporan tools Wings Surya berulang kali meskipun seluruh master tools (13 tools) pada hari & toko tersebut sudah selesai dilaporkan.
+      - Diperlukan proteksi ganda: validasi di sisi backend API serta penguncian formulir dan penonaktifan tombol submit di sisi frontend aplikasi mobile.
+    - **Solusi & Implementasi**:
+      - **1. Validasi Backend Ketat (`WingsSuryaController.php`)**:
+        - Pada method `store()`, sistem menghitung jumlah tool unik yang telah dilaporkan untuk kombinasi karyawan, tanggal, dan toko terkait.
+        - Jika seluruh master tools yang aktif (13 tools) telah berstatus selesai dilaporkan, backend secara tegas menolak kiriman data baru dengan respon HTTP 422: *"Semua master tools Wings Surya untuk kunjungan ini telah selesai dilaporkan. Formulir sudah terkunci dan tidak dapat diinput kembali."*
+      - **2. Penguncian UI & Nonaktif Tombol Submit Mobile (`wings_report_form.dart`)**:
+        - Menambahkan pemeriksaan status kelengkapan pelaporan tools pada form mobile.
+        - Menampilkan banner notifikasi hijau *"Semua Tools Selesai Dilaporkan"* dan menonaktifkan (*disable*) tombol simpan/submit sehingga formulir terkunci secara aman tanpa memerlukan build ulang aplikasi.
+- [x] **Milestone 66: Perbaikan Skema PostgreSQL Kolom NIK pada Autentikasi & Server Gateway** (Selesai 01 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Terjadi kendala login pada PostgreSQL cluster dengan pesan error: `SQLSTATE[42703]: Undefined column: 7 ERROR: column "nik" does not exist`.
+      - Pada skema PostgreSQL ESA (`attendance_pg`), kolom resmi penyimpan Nomor Induk Karyawan adalah `employee_no`, bukan `nik`. Adanya klausa query SQL mentah `LOWER(nik) = ?` menyebabkan eksekusi query digagalkan oleh PostgreSQL engine.
+    - **Solusi & Implementasi**:
+      - **1. Perbaikan Query Login Karyawan (`AuthController.php`)**:
+        - Menghapus pemanggilan kolom fiktif `nik` pada query SQL login.
+        - Memastikan pencarian NIK menggunakan kolom resmi `employee_no` dengan fungsi `LOWER(employee_no) = ?` secara *case-insensitive*, serta mendukung pencarian by email dan nomor HP.
+      - **2. Penyelarasan Skema Gateway Server (`ServerGatewayController.php`)**:
+        - Mengoreksi seluruh endpoint `/api/v1/gateway/discover`, `/api/v1/gateway/login`, dan `/api/v1/cross-entity/subordinates`.
+        - Mengganti referensi kolom fiktif (`nik`, `no_ktp`, `id_card_number`, `parent_id`, `supervisor_nik`, `company_name`, `position`) dengan skema dan relasi fisik riil (`employee_no`, `supervisor_id`, `full_name`, `company->name`, `position->name`).
+      - **3. Pengujian & Deployment Cluster**:
+        - Verifikasi langsung melalui API login ke 3 node server production (AMK, AKP, ATK) dengan hasil respon sukses (HTTP 200/401 valid JSON tanpa error PostgreSQL).
 
 ---
 
