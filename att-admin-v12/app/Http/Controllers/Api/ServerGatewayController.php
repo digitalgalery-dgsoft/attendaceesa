@@ -80,17 +80,21 @@ class ServerGatewayController extends Controller
         $password = $request->input('password');
 
         // 1. Cari user / employee lokal
-        $user = User::where('email', $login)
-            ->orWhere('username', $login)
+        $user = User::whereRaw('LOWER(email) = ?', [strtolower($login)])
+            ->orWhereRaw('LOWER(username) = ?', [strtolower($login)])
             ->orWhereHas('employee', function ($q) use ($login) {
-                $q->where('nik', $login)
+                $q->whereRaw('LOWER(employee_no) = ?', [strtolower($login)])
+                  ->orWhereRaw('LOWER(nik) = ?', [strtolower($login)])
+                  ->orWhere('phone', $login)
                   ->orWhere('no_ktp', $login)
                   ->orWhere('id_card_number', $login);
             })->with('employee.company')->first();
 
         if (!$user) {
             // Cek langsung ke model Employee jika user belum dibuat
-            $employee = Employee::where('nik', $login)
+            $employee = Employee::whereRaw('LOWER(employee_no) = ?', [strtolower($login)])
+                ->orWhereRaw('LOWER(nik) = ?', [strtolower($login)])
+                ->orWhere('phone', $login)
                 ->orWhere('no_ktp', $login)
                 ->orWhere('id_card_number', $login)
                 ->first();

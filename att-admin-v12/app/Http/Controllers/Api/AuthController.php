@@ -29,15 +29,22 @@ class AuthController extends Controller
 
         $loginId = trim($request->email);
         $password = $request->password;
+        $lowerLoginId = strtolower($loginId);
 
-        // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email, NIK, employee_no, atau nomor HP
-        $candidateEmployees = Employee::where(function($query) use ($loginId) {
-                $query->where('email', $loginId)
-                      ->orWhere('employee_no', $loginId)
-                      ->orWhere('nik', $loginId)
+        // Cari record karyawan yang berstatus AKTIF (is_active = true) berdasarkan email, NIK, employee_no, atau nomor HP (Case-Insensitive)
+        $candidateEmployees = Employee::where(function($query) use ($loginId, $lowerLoginId) {
+                $query->whereRaw('LOWER(email) = ?', [$lowerLoginId])
+                      ->orWhereRaw('LOWER(employee_no) = ?', [$lowerLoginId])
+                      ->orWhereRaw('LOWER(nik) = ?', [$lowerLoginId])
                       ->orWhere('phone', $loginId);
             })
-            ->where('is_active', true)
+            ->where(function($q) use ($lowerLoginId) {
+                $q->where('is_active', true);
+                // Untuk akun demo Google Play (seperti DULUX-DC-001 atau tester), tetap temukan walau status inactive agar bisa auto-aktif
+                if (str_contains($lowerLoginId, 'dulux') || str_contains($lowerLoginId, 'test') || str_contains($lowerLoginId, 'google')) {
+                    $q->orWhere('is_active', false);
+                }
+            })
             ->with(['company', 'principal', 'branch', 'department', 'position', 'user'])
             ->orderByDesc('id')
             ->get();
@@ -100,17 +107,27 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Deteksi apakah akun ini adalah akun tester / reviewer Google Play
-        $isReviewTester = str_contains(strtolower($loginId), 'test') ||
-                          str_contains(strtolower($loginId), 'google') ||
-                          str_contains(strtolower($loginId), 'review') ||
-                          str_contains(strtolower($loginId), '081247') ||
+        // Deteksi apakah akun ini adalah akun tester / reviewer Google Play (termasuk DULUX-DC-001)
+        $isReviewTester = str_contains($lowerLoginId, 'dulux-dc-001') ||
+                          str_contains($lowerLoginId, 'dulux') ||
+                          str_contains($lowerLoginId, 'test') ||
+                          str_contains($lowerLoginId, 'google') ||
+                          str_contains($lowerLoginId, 'review') ||
+                          str_contains($lowerLoginId, '081247') ||
+                          str_contains(strtolower((string)($employee->employee_no ?? '')), 'dulux') ||
+                          str_contains(strtolower((string)($employee->nik ?? '')), 'dulux') ||
                           str_contains(strtolower((string)$employee->email), 'test') ||
                           str_contains(strtolower((string)$employee->email), 'google');
 
+        // Pastikan akun tester Google selalu berstatus aktif
+        if ($isReviewTester && !$employee->is_active) {
+            $employee->is_active = true;
+            $employee->save();
+        }
+
         if ($request->filled('device_id')) {
             if ($isReviewTester) {
-                // Jangan kunci akun tester Google Play agar reviewer/bot Google dengan perangkat apa pun bisa login mulus
+                // Jangan kunci akun tester Google Play (seperti DULUX-DC-001) agar reviewer/bot Google dengan perangkat apa pun bisa login mulus
                 $employee->device_id = $request->device_id;
                 $employee->device_name = $request->device_name;
                 $employee->save();
