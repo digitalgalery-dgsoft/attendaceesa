@@ -2676,6 +2676,24 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Menambahkan header `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` pada seluruh respon aplikasi web, API, dan server Apache.
       - **4. Pemasangan Meta Tag Noindex di Seluruh Template View**:
         - Menambahkan `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">` pada Filament Admin Panel (via `PanelsRenderHook::HEAD_START` di `AdminPanelProvider.php`), Portal Layout, Tenant Login, Landing Page, dan Server Monitoring.
+- [x] **Milestone 68: Penghapusan Tampilan Harga & Perhitungan Penjualan Laporan Wings Surya (Event MBR & Regular) Transisi Murni Kuantiti/Qty** (Selesai 02 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Laporan penjualan PT Wings Surya (baik mode *Event MBR Sales* `RPT-WINGS-MBR-SALES-01` maupun *Regular Sales* `RPT-WINGS-REGULAR-SALES-01`) difokuskan murni pada pencatatan pergerakan fisik barang (volume/kuantiti).
+      - Bagian harga master produk distributor, input harga toko, dan kalkulasi subtotal/omset rupiah dihilangkan dari form pelaporan mobile serta dashboard analitik portal admin.
+    - **Solusi & Implementasi**:
+      - **1. Formulir Pelaporan Mobile (`att-mobile/lib/screens/dynamic_form_screen.dart`)**:
+        - **Data Master Produk**: Menghilangkan tampilan harga jual distributor pada kartu produk terpilih dan modal pencarian produk (*product picker*).
+        - **Input Transaksi**: Menghilangkan kolom input `HARGA TOKO (RP)` dan kontainer kalkulasi `Live Value Total`.
+        - **Input Kuantiti Penuh**: Field kuantiti `QTY (DUS/PCS)` diubah menjadi *full-width* dengan label `'JUMLAH / KUANTITI PENJUALAN (DUS/PCS)'`.
+        - **Pembersihan Validasi & Payload**: Menghapus syarat validasi harga toko `> 0`, item keranjang otomatis diset dengan `store_price: 0` dan `value_rp: 0`, ringkasan keranjang menampilkan badge bersih `'$q Dus / Pcs'`.
+        - **Step 1 Review**: Menghilangkan KPI Card *Total Value (Rp)* dan *Total Penjualan (Booth)*; hanya menampilkan kartu metrik tunggal *Total Kuantiti Penjualan*.
+      - **2. Dashboard Portal Analitik Wings (`wings_mbr_dashboard.blade.php`)**:
+        - **KPI Cards**: Menghilangkan KPI Card *Total Nilai Penjualan (Omzet)* dan *Metode Pembayaran (Nominal Rp)*. Menyusun 4 kartu utama baris 1 (Total Qty Penjualan, Penjualan Hari Ini, Total Varian Produk, Mitra Aktif dengan rata-rata Qty per mitra) dan 3 kartu baris 2 (Total Laporan Submisi, Toko Tercover, Galeri Dokumentasi Foto).
+        - **Tabel Kinerja**: Menghapus kolom dan nilai *Nilai (Rp)* pada Tabel Top 5 Mitra, Top 5 Produk Terlaris, Penjualan Per Daerah/Cabang, Penjualan Per Wilayah, serta Tabel Live Submissions.
+        - **Modal Cart & Breakdown Drilldown JS**: Menghapus kolom Harga Toko/Pcs, Subtotal Rp, Total Nilai Penjualan Rp, dan total tfoot Rupiah pada modal pop-up keranjang dan detail drilldown produk/mitra/area/region.
+      - **3. Halaman Detail Rincian Submisi Portal (`report_submission_detail.blade.php`)**:
+        - Mengganti kartu ringkasan omset dan nominal bayar menjadi murni *Total Kuantiti Terjual* dan *Varian Produk Terjual*.
+        - Menghilangkan badge subtotal rupiah, harga distributor, dan harga toko pada kartu rincian produk Wings Sales.
 
 ---
 

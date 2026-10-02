@@ -540,24 +540,7 @@
     {{-- 2. KARTU METRIK KPI UTAMA (NATIVE PORTAL CARD STYLE) --}}
     <div class="portal-mbr-kpi-grid-4">
         
-        {{-- KPI 1: Total Nilai Omzet --}}
-        <div class="portal-mbr-kpi-card">
-            <div class="portal-mbr-kpi-info">
-                <div class="portal-mbr-kpi-label">Total Nilai Penjualan (Omzet)</div>
-                <div class="portal-mbr-kpi-val" style="color: #059669; font-size: 1.55rem;">
-                    Rp {{ number_format($mbrData['kpis']['total_value_penjualan_rp'], 0, ',', '.') }}
-                </div>
-                <div class="portal-mbr-kpi-sub">
-                    <i class="fa-regular fa-calendar" style="color: var(--brand-primary);"></i>
-                    <span>{{ !empty($startDateStr) && !empty($endDateStr) ? Carbon\Carbon::parse($startDateStr)->translatedFormat('d M Y') . ' - ' . Carbon\Carbon::parse($endDateStr)->translatedFormat('d M Y') : Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('M Y') . ' - ' . Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('M Y') }}</span>
-                </div>
-            </div>
-            <div class="portal-mbr-icon-badge emerald">
-                <i class="fa-solid fa-money-bill-wave"></i>
-            </div>
-        </div>
-
-        {{-- KPI 2: Total Qty Fisik Terjual --}}
+        {{-- KPI 1: Total Qty Fisik Terjual --}}
         <div class="portal-mbr-kpi-card">
             <div class="portal-mbr-kpi-info">
                 <div class="portal-mbr-kpi-label">Total Qty Penjualan</div>
@@ -571,6 +554,23 @@
             </div>
             <div class="portal-mbr-icon-badge blue">
                 <i class="fa-solid fa-boxes-stacked"></i>
+            </div>
+        </div>
+
+        {{-- KPI 2: Penjualan Hari Ini --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Penjualan Hari Ini</div>
+                <div class="portal-mbr-kpi-val" style="color: var(--brand-primary);">
+                    {{ number_format($mbrData['kpis']['total_penjualan_hari_ini']) }}<span class="portal-mbr-kpi-unit">Pcs</span>
+                </div>
+                <div class="portal-mbr-kpi-sub">
+                    <i class="fa-regular fa-clock" style="color: var(--brand-primary);"></i>
+                    <span>{{ Carbon\Carbon::now()->translatedFormat('d F Y') }}</span>
+                </div>
+            </div>
+            <div class="portal-mbr-icon-badge brand">
+                <i class="fa-solid fa-calendar-day"></i>
             </div>
         </div>
 
@@ -591,54 +591,7 @@
             </div>
         </div>
 
-        {{-- KPI 4: Penjualan Hari Ini --}}
-        <div class="portal-mbr-kpi-card">
-            <div class="portal-mbr-kpi-info">
-                <div class="portal-mbr-kpi-label">Penjualan Hari Ini</div>
-                <div class="portal-mbr-kpi-val" style="color: var(--brand-primary);">
-                    {{ number_format($mbrData['kpis']['total_penjualan_hari_ini']) }}<span class="portal-mbr-kpi-unit">Pcs</span>
-                </div>
-                <div class="portal-mbr-kpi-sub">
-                    <i class="fa-regular fa-clock" style="color: var(--brand-primary);"></i>
-                    <span>{{ Carbon\Carbon::now()->translatedFormat('d F Y') }}</span>
-                </div>
-            </div>
-            <div class="portal-mbr-icon-badge brand">
-                <i class="fa-solid fa-calendar-day"></i>
-            </div>
-        </div>
-
-    </div>
-
-    {{-- KARTU METRIK KPI BARIS 2 (METODE BAYAR, MITRA AKTIF, TOKO TERCOVER) --}}
-    <div class="portal-mbr-kpi-grid-3">
-        
-        {{-- KPI 5: Metode Pembayaran --}}
-        <div class="portal-mbr-kpi-card">
-            <div class="portal-mbr-kpi-info">
-                <div class="portal-mbr-kpi-label">Metode Pembayaran</div>
-                <div style="margin-top: 0.35rem; display: flex; flex-direction: column; gap: 0.25rem;">
-                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700;">
-                        <span style="color: #1d4ed8;"><i class="fa-solid fa-store" style="font-size: 0.75rem;"></i> Bayar Booth:</span>
-                        <span style="color: var(--text-heading);">Rp {{ number_format($mbrData['kpis']['total_bayar_di_booth_rp'], 0, ',', '.') }}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; font-size: 0.82rem; font-weight: 700;">
-                        <span style="color: #6d28d9;"><i class="fa-solid fa-cash-register" style="font-size: 0.75rem;"></i> Bayar Kasir:</span>
-                        <span style="color: var(--text-heading);">Rp {{ number_format($mbrData['kpis']['total_bayar_di_kasir_rp'], 0, ',', '.') }}</span>
-                    </div>
-                </div>
-                <div class="portal-mbr-kpi-sub">
-                    <a href="javascript:void(0)" onclick="openGalleryModal('struk')" style="color: var(--brand-primary); text-decoration: none; font-weight: 700;">
-                        <i class="fa-solid fa-receipt"></i> Lihat Bukti Foto Struk
-                    </a>
-                </div>
-            </div>
-            <div class="portal-mbr-icon-badge purple">
-                <i class="fa-solid fa-cash-register"></i>
-            </div>
-        </div>
-
-        {{-- KPI 6: Mitra Aktif Penjualan --}}
+        {{-- KPI 4: Mitra Aktif Penjualan --}}
         <div class="portal-mbr-kpi-card">
             <div class="portal-mbr-kpi-info">
                 <div class="portal-mbr-kpi-label">Mitra Penjualan (SPG/MD)</div>
@@ -647,7 +600,7 @@
                 </div>
                 <div class="portal-mbr-kpi-sub">
                     <i class="fa-solid fa-calculator" style="color: #4f46e5;"></i>
-                    <span>Rata-rata: Rp {{ count($mbrData['top_mitra'] ?? []) > 0 ? number_format($mbrData['kpis']['total_value_penjualan_rp'] / count($mbrData['top_mitra']), 0, ',', '.') : '0' }} / mitra</span>
+                    <span>Rata-rata: {{ count($mbrData['top_mitra'] ?? []) > 0 ? number_format(round($mbrData['kpis']['total_qty_penjualan'] / count($mbrData['top_mitra']))) : '0' }} Pcs / mitra</span>
                 </div>
             </div>
             <div class="portal-mbr-icon-badge indigo">
@@ -655,7 +608,12 @@
             </div>
         </div>
 
-        {{-- KPI 7: Total Submisi & Toko Tercover --}}
+    </div>
+
+    {{-- KARTU METRIK KPI BARIS 2 (TOTAL SUBMISI, TOKO TERCOVER, DOKUMENTASI FOTO) --}}
+    <div class="portal-mbr-kpi-grid-3">
+        
+        {{-- KPI 5: Total Submisi Masuk --}}
         <div class="portal-mbr-kpi-card">
             <div class="portal-mbr-kpi-info">
                 <div class="portal-mbr-kpi-label">Total Laporan Submisi</div>
@@ -663,12 +621,47 @@
                     {{ number_format($mbrData['kpis']['total_submissions']) }}<span class="portal-mbr-kpi-unit">Laporan</span>
                 </div>
                 <div class="portal-mbr-kpi-sub">
+                    <i class="fa-regular fa-calendar" style="color: var(--brand-primary);"></i>
+                    <span>{{ !empty($startDateStr) && !empty($endDateStr) ? Carbon\Carbon::parse($startDateStr)->translatedFormat('d M Y') . ' - ' . Carbon\Carbon::parse($endDateStr)->translatedFormat('d M Y') : Carbon\Carbon::create($startYear, $startMonth, 1)->translatedFormat('M Y') . ' - ' . Carbon\Carbon::create($endYear, $endMonth, 1)->translatedFormat('M Y') }}</span>
+                </div>
+            </div>
+            <div class="portal-mbr-icon-badge brand">
+                <i class="fa-solid fa-clipboard-check"></i>
+            </div>
+        </div>
+
+        {{-- KPI 6: Toko / Outlet Tercover --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Toko / Outlet Tercover</div>
+                <div class="portal-mbr-kpi-val" style="color: #d97706;">
+                    {{ $mbrData['kpis']['unique_stores'] }}<span class="portal-mbr-kpi-unit">Outlet</span>
+                </div>
+                <div class="portal-mbr-kpi-sub">
                     <i class="fa-solid fa-shop" style="color: #d97706;"></i>
-                    <span>Tersebar di <strong>{{ $mbrData['kpis']['unique_stores'] }}</strong> Toko & Outlet</span>
+                    <span>Sebaran titik toko & outlet aktif</span>
                 </div>
             </div>
             <div class="portal-mbr-icon-badge amber">
                 <i class="fa-solid fa-store"></i>
+            </div>
+        </div>
+
+        {{-- KPI 7: Dokumentasi Lapangan --}}
+        <div class="portal-mbr-kpi-card">
+            <div class="portal-mbr-kpi-info">
+                <div class="portal-mbr-kpi-label">Dokumentasi Lapangan</div>
+                <div class="portal-mbr-kpi-val" style="color: #059669;">
+                    {{ count($mbrData['gallery_photos']) }}<span class="portal-mbr-kpi-unit">Foto</span>
+                </div>
+                <div class="portal-mbr-kpi-sub">
+                    <a href="javascript:void(0)" onclick="openGalleryModal('all')" style="color: var(--brand-primary); text-decoration: none; font-weight: 700;">
+                        <i class="fa-solid fa-images"></i> Buka Galeri Dokumentasi
+                    </a>
+                </div>
+            </div>
+            <div class="portal-mbr-icon-badge emerald">
+                <i class="fa-solid fa-camera"></i>
             </div>
         </div>
 
@@ -733,7 +726,6 @@
                                 </td>
                                 <td>
                                     <div style="font-weight: 700; color: var(--text-heading);">{{ strtoupper($m['name']) }}</div>
-                                    <div style="font-size: 0.74rem; color: var(--text-muted);">Rp {{ number_format($m['value'], 0, ',', '.') }}</div>
                                 </td>
                                 <td style="color: var(--text-muted); font-weight: 600;">{{ $m['area'] }}</td>
                                 <td class="num" style="color: #2563eb;">{{ number_format($m['qty']) }} Pcs</td>
@@ -775,7 +767,6 @@
                             <th style="width: 40px; text-align: center;">#</th>
                             <th>Nama Produk</th>
                             <th class="num">Total Qty</th>
-                            <th class="num">Nilai (Rp)</th>
                             <th style="width: 70px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
@@ -794,7 +785,6 @@
                                     @endif
                                 </td>
                                 <td class="num" style="color: #2563eb;">{{ number_format($p['qty']) }} Pcs</td>
-                                <td class="num" style="color: #059669;">Rp {{ number_format($p['value'], 0, ',', '.') }}</td>
                                 <td style="text-align: center;">
                                     <button type="button" onclick='openMbrBreakdownModal("product", "{{ addslashes($p['name']) }}", "{{ addslashes($p['sku'] ?? '') }}", @json($p['breakdown'] ?? []))' class="portal-mbr-btn-action">
                                         <i class="fa-solid fa-list-ul"></i> Detail
@@ -803,7 +793,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                     <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
                                     Belum ada data produk pada periode ini.
                                 </td>
@@ -834,7 +824,6 @@
                             <th>Daerah / Cabang</th>
                             <th style="text-align: center;">Toko Tercover</th>
                             <th class="num">Total Qty</th>
-                            <th class="num">Nilai (Rp)</th>
                             <th style="width: 70px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
@@ -849,7 +838,6 @@
                                     </span>
                                 </td>
                                 <td class="num" style="color: #2563eb;">{{ number_format($a['qty']) }} Pcs</td>
-                                <td class="num" style="color: #059669;">Rp {{ number_format($a['value'], 0, ',', '.') }}</td>
                                 <td style="text-align: center;">
                                     <button type="button" onclick='openMbrBreakdownModal("area", "{{ addslashes($a['area']) }}", "", @json($a['breakdown'] ?? []))' class="portal-mbr-btn-action">
                                         <i class="fa-solid fa-list-ul"></i> Detail
@@ -858,7 +846,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                     <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
                                     Belum ada data daerah pada periode ini.
                                 </td>
@@ -889,7 +877,6 @@
                             <th>Wilayah (Region)</th>
                             <th style="text-align: center;">Jumlah Daerah</th>
                             <th class="num">Total Qty</th>
-                            <th class="num">Nilai (Rp)</th>
                             <th style="width: 70px; text-align: center;">Aksi</th>
                         </tr>
                     </thead>
@@ -904,7 +891,6 @@
                                     </span>
                                 </td>
                                 <td class="num" style="color: #2563eb;">{{ number_format($r['qty']) }} Pcs</td>
-                                <td class="num" style="color: #059669;">Rp {{ number_format($r['value'], 0, ',', '.') }}</td>
                                 <td style="text-align: center;">
                                     <button type="button" onclick='openMbrBreakdownModal("region", "{{ addslashes($r['region']) }}", "", @json($r['breakdown'] ?? []))' class="portal-mbr-btn-action">
                                         <i class="fa-solid fa-list-ul"></i> Detail
@@ -913,7 +899,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                                <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                     <i class="fa-solid fa-inbox" style="font-size: 1.5rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
                                     Belum ada data wilayah pada periode ini.
                                 </td>
@@ -956,7 +942,6 @@
                         <th>Toko / Lokasi</th>
                         <th>Ringkasan Keranjang (Cart)</th>
                         <th class="num">Total Qty</th>
-                        <th class="num">Nilai (Rp)</th>
                         <th style="text-align: center;">Pembayaran</th>
                         <th style="width: 90px; text-align: center;">Aksi</th>
                     </tr>
@@ -1140,10 +1125,6 @@
                                                 <div style="font-weight: 700; color: var(--text-heading);">&bull; {{ $itemName }}</div>
                                                 <div style="display: flex; align-items: center; gap: 6px; padding-left: 8px; font-size: 0.72rem; margin-top: 1px;">
                                                     <span style="color: #2563eb; font-weight: 600;">{{ $itemQty }} pcs</span>
-                                                    <span style="color: var(--text-muted);">&bull;</span>
-                                                    <span style="color: #059669; font-weight: 700; background: #ecfdf5; padding: 1px 6px; border-radius: 4px; border: 1px solid #a7f3d0;" title="Harga Toko per pcs">
-                                                        Rp {{ number_format($itemPrice, 0, ',', '.') }}/pcs
-                                                    </span>
                                                 </div>
                                             </div>
                                         @endforeach
@@ -1173,7 +1154,6 @@
                                 @endif
                             </td>
                             <td class="num" style="color: #2563eb; font-weight: 700;">{{ number_format($subQty) }} Pcs</td>
-                            <td class="num" style="color: #059669; font-weight: 700;">Rp {{ number_format($subVal, 0, ',', '.') }}</td>
                             <td style="text-align: center;">
                                 @if($isNoSellOut)
                                     <span class="portal-mbr-pill" style="background: #f1f5f9; color: #64748b; border-color: #cbd5e1; font-size: 0.72rem; font-weight: 700;">
@@ -1202,7 +1182,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
+                            <td colspan="8" style="text-align: center; padding: 2.5rem; color: var(--text-muted);">
                                 <i class="fa-solid fa-folder-open" style="font-size: 2rem; display: block; margin-bottom: 0.5rem; color: #cbd5e1;"></i>
                                 <div style="font-weight: 700; color: var(--text-heading); font-size: 1rem;">Belum Ada Data Laporan Masuk</div>
                                 <div style="font-size: 0.82rem; margin-top: 0.35rem;">Data transaksi submission untuk periode ini akan otomatis muncul saat petugas SPG/MD mengirimkan laporan.</div>
@@ -1552,9 +1532,7 @@
                             <tr>
                                 <th style="width: 40px; text-align: center;">#</th>
                                 <th>Nama Produk</th>
-                                <th class="num">Harga Toko / Pcs (Rp)</th>
                                 <th class="num">Qty</th>
-                                <th class="num">Subtotal (Rp)</th>
                                 <th style="text-align: center;">Metode Bayar</th>
                                 <th style="text-align: center; width: 90px;">Foto Struk</th>
                             </tr>
@@ -1572,9 +1550,7 @@
                                             <div style="font-weight: 800; color: var(--text-heading);">${pName}</div>
                                             <div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${pSku}</div>
                                         </td>
-                                        <td class="num" style="font-weight: 700; color: #0f172a;">Rp ${Number(item.store_price || item.price || 0).toLocaleString('id-ID')}</td>
                                         <td class="num" style="color: #2563eb; font-weight: 800;">${Number(item.qty || 1).toLocaleString('id-ID')} Pcs</td>
-                                        <td class="num" style="color: #059669; font-weight: 800;">Rp ${Number(item.value_rp || (item.qty * (item.store_price || item.price || 0)) || 0).toLocaleString('id-ID')}</td>
                                         <td style="text-align: center;">
                                             <span class="portal-mbr-pill ${String(item.payment_type || '').toLowerCase().includes('kasir') ? 'kasir' : 'booth'}">
                                                 <i class="fa-solid ${String(item.payment_type || '').toLowerCase().includes('kasir') ? 'fa-cash-register' : 'fa-store'}"></i>
@@ -1720,11 +1696,9 @@
         let modalTitleHtml = '';
         let tableHtml = '';
         let totalQty = 0;
-        let totalVal = 0;
 
         list.forEach(item => {
             totalQty += Number(item.qty || 0);
-            totalVal += Number(item.value || 0);
         });
 
         if (type === 'mitra') {
@@ -1740,10 +1714,6 @@
                             <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty Terjual</div>
                             <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
                         </div>
-                        <div>
-                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai Penjualan</div>
-                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
-                        </div>
                     </div>
                 </div>
                 <div style="overflow-x: auto;">
@@ -1753,7 +1723,6 @@
                                 <th style="width: 40px; text-align: center;">#</th>
                                 <th>Nama Produk</th>
                                 <th class="num">Jumlah Pcs</th>
-                                <th class="num">Total Penjualan (Rp)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1765,11 +1734,10 @@
                                         ${it.sku && it.sku !== '-' ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">${it.sku}</div>` : ''}
                                     </td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="4" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data produk untuk mitra ini.</td>
+                                    <td colspan="3" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data produk untuk mitra ini.</td>
                                 </tr>
                             `}
                         </tbody>
@@ -1778,7 +1746,6 @@
                                 <tr style="background: #f8fafc; font-weight: 800;">
                                     <td colspan="2" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
                                     <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
                                 </tr>
                             </tfoot>
                         ` : ''}
@@ -1798,10 +1765,6 @@
                             <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty Terjual</div>
                             <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
                         </div>
-                        <div>
-                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai</div>
-                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
-                        </div>
                     </div>
                 </div>
                 <div style="overflow-x: auto;">
@@ -1813,7 +1776,6 @@
                                 <th>Area / Cabang</th>
                                 <th>Toko / Lokasi</th>
                                 <th class="num">Jumlah Pcs</th>
-                                <th class="num">Total Penjualan (Rp)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1824,11 +1786,10 @@
                                     <td style="color: var(--text-muted); font-weight: 600;">${it.area || '-'}</td>
                                     <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data distribusi untuk produk ini.</td>
+                                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data distribusi untuk produk ini.</td>
                                 </tr>
                             `}
                         </tbody>
@@ -1837,7 +1798,6 @@
                                 <tr style="background: #f8fafc; font-weight: 800;">
                                     <td colspan="4" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
                                     <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
                                 </tr>
                             </tfoot>
                         ` : ''}
@@ -1857,10 +1817,6 @@
                             <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty</div>
                             <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
                         </div>
-                        <div>
-                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai</div>
-                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
-                        </div>
                     </div>
                 </div>
                 <div style="overflow-x: auto;">
@@ -1872,7 +1828,6 @@
                                 <th>Produk</th>
                                 <th>Toko / Lokasi</th>
                                 <th class="num">Jumlah Pcs</th>
-                                <th class="num">Total Penjualan (Rp)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1883,11 +1838,10 @@
                                     <td style="color: var(--brand-primary); font-weight: 600;">${(it.product || '-').toUpperCase()}</td>
                                     <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data penjualan di daerah ini.</td>
+                                    <td colspan="5" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data penjualan di daerah ini.</td>
                                 </tr>
                             `}
                         </tbody>
@@ -1896,7 +1850,6 @@
                                 <tr style="background: #f8fafc; font-weight: 800;">
                                     <td colspan="4" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
                                     <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
                                 </tr>
                             </tfoot>
                         ` : ''}
@@ -1916,10 +1869,6 @@
                             <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Qty</div>
                             <div style="font-weight: 800; color: #2563eb; font-size: 1.15rem;">${totalQty.toLocaleString('id-ID')} Pcs</div>
                         </div>
-                        <div>
-                            <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase;">Total Nilai</div>
-                            <div style="font-weight: 800; color: #059669; font-size: 1.15rem;">Rp ${totalVal.toLocaleString('id-ID')}</div>
-                        </div>
                     </div>
                 </div>
                 <div style="overflow-x: auto;">
@@ -1932,7 +1881,6 @@
                                 <th>Produk</th>
                                 <th>Toko / Lokasi</th>
                                 <th class="num">Jumlah Pcs</th>
-                                <th class="num">Total Penjualan (Rp)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -1944,11 +1892,10 @@
                                     <td style="color: var(--brand-primary); font-weight: 600;">${(it.product || '-').toUpperCase()}</td>
                                     <td style="color: var(--text-heading);">${(it.store || '-').toUpperCase()}</td>
                                     <td class="num" style="color: #2563eb; font-weight: 700;">${Number(it.qty || 0).toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669; font-weight: 700;">Rp ${Number(it.value || 0).toLocaleString('id-ID')}</td>
                                 </tr>
                             `).join('') : `
                                 <tr>
-                                    <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data penjualan di wilayah ini.</td>
+                                    <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">Belum ada data penjualan di wilayah ini.</td>
                                 </tr>
                             `}
                         </tbody>
@@ -1957,7 +1904,6 @@
                                 <tr style="background: #f8fafc; font-weight: 800;">
                                     <td colspan="5" style="text-align: right; padding: 0.75rem 1rem;">TOTAL:</td>
                                     <td class="num" style="color: #2563eb;">${totalQty.toLocaleString('id-ID')} Pcs</td>
-                                    <td class="num" style="color: #059669;">Rp ${totalVal.toLocaleString('id-ID')}</td>
                                 </tr>
                             </tfoot>
                         ` : ''}

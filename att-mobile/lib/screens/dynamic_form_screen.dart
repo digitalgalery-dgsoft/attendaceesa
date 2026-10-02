@@ -14290,38 +14290,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      // Harga Jual Distributor (Kolom Biru Excel)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0284C7).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.25)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.local_shipping_rounded, size: 15, color: Color(0xFF0284C7)),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Harga Jual Distributor: ',
-                              style: TextStyle(
-                                fontSize: 11.5,
-                                color: isDarkMode ? Colors.grey.shade300 : const Color(0xFF0369A1),
-                              ),
-                            ),
-                            Text(
-                              _formatRupiah(p.price ?? 0),
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF0284C7),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
                   ),
                 ),
@@ -14396,137 +14364,44 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               ),
               const SizedBox(height: 14),
 
-              // Baris: Harga Toko & Qty Penjualan
-              Row(
+              // Input Qty Penjualan (Full Width - Tanpa Input Harga Toko)
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Harga Toko (Rp)
-                  Expanded(
-                    flex: 6,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'HARGA TOKO (RP)',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
-                        ),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: _mbrStorePriceCtrl,
-                          keyboardType: TextInputType.number,
-                          onChanged: (_) => setState(() {}),
-                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
-                          decoration: InputDecoration(
-                            hintText: 'Contoh: 105000',
-                            hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                            prefixText: 'Rp ',
-                            prefixStyle: TextStyle(
-                                fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
-                            filled: true,
-                            fillColor: elevatedColor,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                  color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                  color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    'JUMLAH / KUANTITI PENJUALAN (DUS/PCS)',
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
                   ),
-                  const SizedBox(width: 10),
-
-                  // Qty Penjualan
-                  Expanded(
-                    flex: 4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'QTY (DUS/PCS)',
-                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
-                        ),
-                        const SizedBox(height: 6),
-                        TextField(
-                          controller: _mbrQtyCtrl,
-                          keyboardType: TextInputType.number,
-                          onChanged: (_) => setState(() {}),
-                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
-                          textAlign: TextAlign.center,
-                          decoration: InputDecoration(
-                            hintText: '1',
-                            hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                            filled: true,
-                            fillColor: elevatedColor,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                  color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: BorderSide(
-                                  color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                              borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
-                            ),
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _mbrQtyCtrl,
+                    keyboardType: TextInputType.number,
+                    onChanged: (_) => setState(() {}),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                    decoration: InputDecoration(
+                      hintText: 'Masukkan jumlah kuantiti (contoh: 5)',
+                      hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                      prefixIcon: const Icon(Icons.shopping_bag_outlined, color: Color(0xFFD97706), size: 20),
+                      filled: true,
+                      fillColor: elevatedColor,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                            color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                            color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
+                      ),
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 12),
-
-              // Live Value Box (Auto calculated: Harga Toko * Qty)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF3C7).withOpacity(isDarkMode ? 0.15 : 0.8),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.calculate_rounded, size: 16, color: Color(0xFFD97706)),
-                        const SizedBox(width: 6),
-                        Text(
-                          'VALUE TOTAL',
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      _formatRupiah(liveValue),
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFFD97706),
-                      ),
-                    ),
-                  ],
-                ),
               ),
               const SizedBox(height: 14),
 
@@ -14541,18 +14416,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       type: ToastificationType.warning,
                       title: const Text('Produk Belum Dipilih'),
                       description: const Text('Silakan pilih produk dari Master terlebih dahulu.'),
-                      autoCloseDuration: const Duration(seconds: 2),
-                    );
-                    return;
-                  }
-
-                  final sPrice = num.tryParse(_mbrStorePriceCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
-                  if (sPrice <= 0) {
-                    toastification.show(
-                      context: context,
-                      type: ToastificationType.warning,
-                      title: const Text('Harga Toko Wajib Diisi'),
-                      description: const Text('Masukkan harga jual toko yang valid.'),
                       autoCloseDuration: const Duration(seconds: 2),
                     );
                     return;
@@ -14575,10 +14438,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       'product_id': _currentMbrSalesProduct!.id,
                       'product_name': _currentMbrSalesProduct!.name,
                       'sku_code': _currentMbrSalesProduct!.skuCode ?? '',
-                      'distributor_price': _currentMbrSalesProduct!.price ?? 0,
-                      'store_price': sPrice,
+                      'distributor_price': 0,
+                      'store_price': 0,
                       'qty': q,
-                      'value_rp': sPrice * q,
+                      'value_rp': 0,
                       'payment_type': _mbrPaymentType,
                       'struk_photo_file': null,
                       'struk_photo_watermark': null,
@@ -14706,17 +14569,17 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           const SizedBox(height: 3),
                           Row(
                             children: [
-                              // Harga Distributor Badge
+                              // Qty Badge
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF0284C7).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
+                                  color: const Color(0xFF0284C7).withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'Dist: ${_formatRupiah(itm['distributor_price'] ?? 0)}',
+                                  '$q Dus / Pcs',
                                   style: const TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.bold,
                                     color: Color(0xFF0284C7),
                                   ),
@@ -14725,31 +14588,22 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                               const SizedBox(width: 6),
                               // Payment type chip
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: (isBooth ? const Color(0xFF10B981) : const Color(0xFF6366F1))
                                       .withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   payType,
                                   style: TextStyle(
-                                    fontSize: 10,
+                                    fontSize: 10.5,
                                     fontWeight: FontWeight.bold,
                                     color: isBooth ? const Color(0xFF10B981) : const Color(0xFF6366F1),
                                   ),
                                 ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Toko: ${_formatRupiah(sPrice)} x $q = ${_formatRupiah(vRp)}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
-                            ),
                           ),
                         ],
                       ),
@@ -14818,38 +14672,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // ── 4 KPI Grid Cards ──
-        Row(
-          children: [
-            Expanded(
-              child: _buildMbrKpiCard(
-                title: 'TOTAL QTY',
-                value: '$totalQty Dus/Pcs',
-                icon: Icons.inventory_rounded,
-                color: const Color(0xFF0284C7),
-                isDarkMode: isDarkMode,
-                cardColor: cardColor,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: _buildMbrKpiCard(
-                title: 'TOTAL VALUE',
-                value: _formatRupiah(totalValue),
-                icon: Icons.monetization_on_rounded,
-                color: const Color(0xFFD97706),
-                isDarkMode: isDarkMode,
-                cardColor: cardColor,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
+        // ── KPI Card Total Kuantiti ──
         _buildMbrKpiCard(
-          title: 'TOTAL PENJUALAN (BAYAR DI BOOTH)',
-          value: _formatRupiah(totalBooth),
-          icon: Icons.store_rounded,
-          color: const Color(0xFF10B981),
+          title: 'TOTAL KUANTITI PENJUALAN',
+          value: '$totalQty Dus/Pcs',
+          icon: Icons.inventory_rounded,
+          color: const Color(0xFF0284C7),
           isDarkMode: isDarkMode,
           cardColor: cardColor,
         ),
@@ -14922,18 +14750,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          '$q dus x ${_formatRupiah(sPrice)} • $payType',
-                          style: TextStyle(fontSize: 11, color: subtitleColor),
+                          '$q Dus/Pcs • $payType',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: subtitleColor),
                         ),
                       ],
                     ),
                   ),
-                  Text(
-                    _formatRupiah(vRp),
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0284C7).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$q Dus/Pcs',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF0284C7),
+                      ),
                     ),
                   ),
                 ],
@@ -15397,23 +15232,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                                 style: TextStyle(
                                                     fontSize: 11, color: Colors.grey.shade500),
                                               ),
-                                            const SizedBox(height: 3),
-                                            // Blue Column Distributor Price Badge
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: const Color(0xFF0284C7).withOpacity(0.12),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                'Harga Distributor: ${_formatRupiah(p.price ?? 0)}',
-                                                style: const TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Color(0xFF0284C7),
-                                                ),
-                                              ),
-                                            ),
                                           ],
                                         ),
                                       ),
@@ -16217,38 +16035,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          // Harga Jual Distributor (Kolom Biru Excel)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF0284C7).withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.25)),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.local_shipping_rounded, size: 15, color: Color(0xFF0284C7)),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Harga Jual Distributor: ',
-                                  style: TextStyle(
-                                    fontSize: 11.5,
-                                    color: isDarkMode ? Colors.grey.shade300 : const Color(0xFF0369A1),
-                                  ),
-                                ),
-                                Text(
-                                  _formatRupiah(p.price ?? 0),
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF0284C7),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+
                         ],
                       ),
                     ),
@@ -16323,137 +16110,44 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Baris: Harga Toko & Qty Penjualan
-                  Row(
+                  // Input Qty Penjualan (Full Width - Tanpa Input Harga Toko)
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Harga Toko (Rp)
-                      Expanded(
-                        flex: 6,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'HARGA TOKO (RP)',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _mbrStorePriceCtrl,
-                              keyboardType: TextInputType.number,
-                              onChanged: (_) => setState(() {}),
-                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
-                              decoration: InputDecoration(
-                                hintText: 'Contoh: 105000',
-                                hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                                prefixText: 'Rp ',
-                                prefixStyle: TextStyle(
-                                    fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade500),
-                                filled: true,
-                                fillColor: elevatedColor,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                      color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                      color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      Text(
+                        'JUMLAH / KUANTITI PENJUALAN (DUS/PCS)',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
                       ),
-                      const SizedBox(width: 10),
-
-                      // Qty Penjualan
-                      Expanded(
-                        flex: 4,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'QTY (DUS/PCS)',
-                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
-                            ),
-                            const SizedBox(height: 6),
-                            TextField(
-                              controller: _mbrQtyCtrl,
-                              keyboardType: TextInputType.number,
-                              onChanged: (_) => setState(() {}),
-                              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: textColor),
-                              textAlign: TextAlign.center,
-                              decoration: InputDecoration(
-                                hintText: '1',
-                                hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
-                                filled: true,
-                                fillColor: elevatedColor,
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                      color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                                ),
-                                enabledBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: BorderSide(
-                                      color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
-                                ),
-                                focusedBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                  borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
-                                ),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(height: 6),
+                      TextField(
+                        controller: _mbrQtyCtrl,
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => setState(() {}),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textColor),
+                        decoration: InputDecoration(
+                          hintText: 'Masukkan jumlah kuantiti (contoh: 5)',
+                          hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+                          prefixIcon: const Icon(Icons.shopping_bag_outlined, color: Color(0xFFD97706), size: 20),
+                          filled: true,
+                          fillColor: elevatedColor,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(
+                                color: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade300),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: const BorderSide(color: Color(0xFFD97706), width: 1.5),
+                          ),
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Live Value Box (Auto calculated: Harga Toko * Qty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFEF3C7).withOpacity(isDarkMode ? 0.15 : 0.8),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: const Color(0xFFD97706).withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(Icons.calculate_rounded, size: 16, color: Color(0xFFD97706)),
-                            const SizedBox(width: 6),
-                            Text(
-                              'VALUE TOTAL',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: isDarkMode ? const Color(0xFFFBBF24) : const Color(0xFFB45309),
-                              ),
-                            ),
-                          ],
-                        ),
-                        Text(
-                          _formatRupiah(liveValue),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFFD97706),
-                          ),
-                        ),
-                      ],
-                    ),
                   ),
                 ],
               ),
@@ -16612,20 +16306,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     final p = _currentMbrSalesProduct!;
-    final int storePrice = int.tryParse(_mbrStorePriceCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
     final int qty = int.tryParse(_mbrQtyCtrl.text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0;
-
-    if (storePrice <= 0) {
-      setState(() => _isSubmitting = false);
-      toastification.show(
-        context: context,
-        type: ToastificationType.warning,
-        title: const Text('Harga Toko Belum Diisi'),
-        description: const Text('Masukkan harga jual toko yang valid (nominal rupiah).'),
-        autoCloseDuration: const Duration(seconds: 3),
-      );
-      return;
-    }
 
     if (qty <= 0) {
       setState(() => _isSubmitting = false);
@@ -16638,8 +16319,6 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       );
       return;
     }
-
-    final int valRp = storePrice * qty;
 
     CustomLoadingIndicator.show(context, message: 'Mengirim laporan penjualan reguler...');
 
@@ -16659,10 +16338,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           'product_id': p.id,
           'product_name': p.name,
           'sku_code': p.skuCode ?? '',
-          'distributor_price': (p.price ?? 0).round(),
-          'store_price': storePrice,
+          'distributor_price': 0,
+          'store_price': 0,
           'qty': qty,
-          'value_rp': valRp,
+          'value_rp': 0,
           'payment_type': 'Bayar di Booth',
         }
       ];
@@ -16674,11 +16353,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         'mbr_sales_items_json': jsonEncode(itemsForPayload),
         'nama_produk': p.name,
         'sku_produk': p.skuCode ?? '',
-        'harga_toko': storePrice,
+        'harga_toko': 0,
         'qty_penjualan': qty,
         'total_qty_penjualan': qty,
-        'total_value_penjualan_rp': valRp,
-        'total_bayar_di_booth_rp': valRp,
+        'total_value_penjualan_rp': 0,
+        'total_bayar_di_booth_rp': 0,
         'total_bayar_di_kasir_rp': 0,
       };
 

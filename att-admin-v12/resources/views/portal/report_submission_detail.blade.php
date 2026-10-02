@@ -2341,59 +2341,31 @@
         {{-- PANEL RINGKASAN GLOBAL PENJUALAN EVENT MBR WINGS SURYA (CARD STATISTIK) --}}
         @if($hasDynamicMbrSalesItems)
             <div class="offtake-summary-grid">
-                {{-- CARD 1: TOTAL NILAI PENJUALAN --}}
-                <div class="offtake-stat-card" style="border-left: 4px solid #16a34a;">
-                    <div class="offtake-stat-icon" style="background: rgba(22, 163, 74, 0.12); color: #16a34a;">
-                        <i class="fa-solid fa-coins"></i>
-                    </div>
-                    <div class="offtake-stat-info">
-                        <span class="offtake-stat-label">Total Nilai Penjualan</span>
-                        <span class="offtake-stat-value" style="color: #15803d;">
-                            Rp {{ number_format($mbrGlobalData['total_value_penjualan_rp'], 0, ',', '.') }}
-                        </span>
-                        <span class="offtake-stat-sub">Akumulasi seluruh transaksi event MBR</span>
-                    </div>
-                </div>
-
-                {{-- CARD 2: TOTAL KUANTITI TERJUAL --}}
-                <div class="offtake-stat-card" style="border-left: 4px solid #d97706;">
-                    <div class="offtake-stat-icon" style="background: rgba(217, 119, 6, 0.12); color: #d97706;">
+                {{-- CARD 1: TOTAL KUANTITI TERJUAL --}}
+                <div class="offtake-stat-card" style="border-left: 4px solid #2563eb;">
+                    <div class="offtake-stat-icon" style="background: rgba(37, 99, 235, 0.12); color: #2563eb;">
                         <i class="fa-solid fa-boxes-stacked"></i>
                     </div>
                     <div class="offtake-stat-info">
                         <span class="offtake-stat-label">Total Kuantiti Terjual</span>
-                        <span class="offtake-stat-value" style="color: #b45309;">
+                        <span class="offtake-stat-value" style="color: #1d4ed8;">
                             {{ number_format($mbrGlobalData['total_qty_penjualan']) }} <span style="font-size: 0.85rem; font-weight: 700; color: #64748b;">Pcs</span>
                         </span>
-                        <span class="offtake-stat-sub">Dari {{ count($mbrSalesItemsList) }} macam produk terjual</span>
+                        <span class="offtake-stat-sub">Akumulasi kuantiti fisik seluruh transaksi</span>
                     </div>
                 </div>
 
-                {{-- CARD 3: TOTAL BAYAR DI BOOTH --}}
-                <div class="offtake-stat-card" style="border-left: 4px solid #0284c7;">
-                    <div class="offtake-stat-icon" style="background: rgba(2, 132, 199, 0.12); color: #0284c7;">
-                        <i class="fa-solid fa-store"></i>
+                {{-- CARD 2: TOTAL VARIAN PRODUK TERJUAL --}}
+                <div class="offtake-stat-card" style="border-left: 4px solid #ea580c;">
+                    <div class="offtake-stat-icon" style="background: rgba(234, 88, 12, 0.12); color: #ea580c;">
+                        <i class="fa-solid fa-tags"></i>
                     </div>
                     <div class="offtake-stat-info">
-                        <span class="offtake-stat-label">Bayar di Booth (SPG)</span>
-                        <span class="offtake-stat-value" style="color: #0369a1;">
-                            Rp {{ number_format($mbrGlobalData['total_bayar_di_booth_rp'], 0, ',', '.') }}
+                        <span class="offtake-stat-label">Varian Produk Terjual</span>
+                        <span class="offtake-stat-value" style="color: #c2410c;">
+                            {{ count($mbrSalesItemsList) }} <span style="font-size: 0.85rem; font-weight: 700; color: #64748b;">SKU</span>
                         </span>
-                        <span class="offtake-stat-sub">Pembayaran langsung di booth SPG</span>
-                    </div>
-                </div>
-
-                {{-- CARD 4: TOTAL BAYAR DI KASIR --}}
-                <div class="offtake-stat-card" style="border-left: 4px solid #7c3aed;">
-                    <div class="offtake-stat-icon" style="background: rgba(124, 58, 237, 0.12); color: #7c3aed;">
-                        <i class="fa-solid fa-cash-register"></i>
-                    </div>
-                    <div class="offtake-stat-info">
-                        <span class="offtake-stat-label">Bayar di Kasir Toko</span>
-                        <span class="offtake-stat-value" style="color: #6d28d9;">
-                            Rp {{ number_format($mbrGlobalData['total_bayar_di_kasir_rp'], 0, ',', '.') }}
-                        </span>
-                        <span class="offtake-stat-sub">Struk transaksi bayar di kasir outlet</span>
+                        <span class="offtake-stat-sub">Macam varian produk yang terjual</span>
                     </div>
                 </div>
             </div>
@@ -2854,24 +2826,16 @@
                                         @endif
                                     </div>
                                     <div>
-                                        <span style="font-size: 0.85rem; font-weight: 800; color: #15803d; background: #dcfce7; padding: 3px 10px; border-radius: 6px; border: 1px solid #bbf7d0;">
-                                            Subtotal: Rp {{ number_format($pValue, 0, ',', '.') }}
+                                        <span style="font-size: 0.85rem; font-weight: 800; color: #2563eb; background: #eff6ff; padding: 3px 10px; border-radius: 6px; border: 1px solid #bfdbfe;">
+                                            Kuantiti: {{ number_format($pQty) }} Pcs
                                         </span>
                                     </div>
                                 </div>
 
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; font-size: 0.82rem; background: #f8fafc; padding: 0.65rem; border-radius: 8px; border: 1px solid #f1f5f9;">
                                     <div>
-                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Harga Distributor</span>
-                                        <strong style="color: #0284c7;">{{ $pDist > 0 ? 'Rp ' . number_format($pDist, 0, ',', '.') : '-' }}</strong>
-                                    </div>
-                                    <div>
-                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Harga Toko / Pcs</span>
-                                        <strong style="color: #1e293b;">Rp {{ number_format($pStore, 0, ',', '.') }}</strong>
-                                    </div>
-                                    <div>
-                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Kuantiti Terjual</span>
-                                        <strong style="color: #d97706;">{{ number_format($pQty) }} Pcs</strong>
+                                        <span style="color: #64748b; font-size: 0.75rem; display: block;">Jumlah / Kuantiti Terjual</span>
+                                        <strong style="color: #2563eb; font-size: 0.95rem;">{{ number_format($pQty) }} Pcs</strong>
                                     </div>
                                     <div>
                                         <span style="color: #64748b; font-size: 0.75rem; display: block;">Jenis Pembayaran</span>
