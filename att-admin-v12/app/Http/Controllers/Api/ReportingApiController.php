@@ -544,23 +544,48 @@ class ReportingApiController extends Controller
                 $isCompletedToday = count($submittedProductNames) >= $templateProducts->count() && $templateProducts->count() > 0;
             } elseif ($t->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($t->code, 'MBR-TOOLS') || str_contains($t->code, 'WINGS-TOOLS')) {
                 // Laporan Tools Wings Surya: selesai jika seluruh item tools telah disubmit
+                $toolsField = $t->fields->first(function ($f) {
+                    $fn = strtolower(trim($f->field_name));
+                    return $fn === 'nama_tools' || $fn === 'pilih_tools';
+                });
+                $standardTools = (!empty($toolsField?->options) && is_array($toolsField->options)) ? $toolsField->options : [
+                    '1 Pcs panci susu',
+                    '1 Pcs mangkuk pengaduk',
+                    '1 Pcs Gunting',
+                    '2 set sendok garpu',
+                    '1 pcs centong sayur',
+                    '1 pcs capitan',
+                    '1 Pcs Pompa dispenser air (optional)',
+                    '1 Pcs Galon air',
+                    '1 Pcs Kompor portable + Gas',
+                    '1 pcs saringan / tirisan mie',
+                    '1 Pcs tray',
+                    '1 Gelas Takar',
+                    'Papercup & Garpu kecil (untuk pengunjung)',
+                ];
+                $standardToolsLower = array_map('strtolower', array_map('trim', $standardTools));
+                $totalTools = count($standardTools);
+
                 $submittedTools = [];
                 foreach ($templateTodaySubs as $sub) {
                     foreach ($sub->values as $val) {
-                        $fn = strtolower($val->field_name ?? '');
-                        if ($fn === 'nama_tools' || str_contains($fn, 'tools')) {
-                            $tVal = trim((string)($val->value_text ?? ''));
-                            if ($tVal !== '') {
-                                $submittedTools[] = strtolower($tVal);
-                            }
+                        $fn = strtolower(trim($val->field_name ?? ''));
+                        // Abaikan field penjelas kondisi, foto, ketersediaan, atau catatan
+                        if (str_contains($fn, 'kondisi') || str_contains($fn, 'foto') || str_contains($fn, 'status') || str_contains($fn, 'ketersediaan')) {
+                            continue;
+                        }
+                        $tVal = trim((string)($val->value_text ?? ''));
+                        if ($tVal === '') continue;
+
+                        $tValLower = strtolower($tVal);
+                        if ($fn === 'nama_tools' || $fn === 'pilih_tools') {
+                            $submittedTools[] = $tValLower;
+                        } elseif (in_array($tValLower, $standardToolsLower)) {
+                            $submittedTools[] = $tValLower;
                         }
                     }
                 }
                 $submittedTools = array_values(array_unique($submittedTools));
-                $toolsField = $t->fields->first(function ($f) {
-                    return strtolower($f->field_name) === 'nama_tools';
-                });
-                $totalTools = (!empty($toolsField?->options) && is_array($toolsField->options)) ? count($toolsField->options) : 13;
                 $isCompletedToday = (count($submittedTools) >= $totalTools && $totalTools > 0);
             } else {
                 $isCompletedToday = $templateTodaySubs->isNotEmpty();
@@ -915,11 +940,37 @@ class ReportingApiController extends Controller
             // Validasi Khusus Template Tools Wings Surya:
             $isWingsToolsTemplate = ($template->code === 'RPT-WINGS-MBR-TOOLS-01' || str_contains($template->code, 'MBR-TOOLS') || str_contains($template->code, 'WINGS-TOOLS'));
             if ($isWingsToolsTemplate) {
+                $toolsField = $template->fields->first(function ($f) {
+                    $fn = strtolower(trim($f->field_name));
+                    return $fn === 'nama_tools' || $fn === 'pilih_tools';
+                });
+                $standardTools = (!empty($toolsField?->options) && is_array($toolsField->options)) ? $toolsField->options : [
+                    '1 Pcs panci susu',
+                    '1 Pcs mangkuk pengaduk',
+                    '1 Pcs Gunting',
+                    '2 set sendok garpu',
+                    '1 pcs centong sayur',
+                    '1 pcs capitan',
+                    '1 Pcs Pompa dispenser air (optional)',
+                    '1 Pcs Galon air',
+                    '1 Pcs Kompor portable + Gas',
+                    '1 pcs saringan / tirisan mie',
+                    '1 Pcs tray',
+                    '1 Gelas Takar',
+                    'Papercup & Garpu kecil (untuk pengunjung)',
+                ];
+                $standardToolsLower = array_map('strtolower', array_map('trim', $standardTools));
+                $maxToolsCount = count($standardTools);
+
                 // Ambil nilai nama_tools dari request
-                $inputToolName = trim((string)($normalizedValues['nama_tools'] ?? ''));
+                $inputToolName = trim((string)($normalizedValues['nama_tools'] ?? $normalizedValues['pilih_tools'] ?? ''));
                 if (empty($inputToolName)) {
                     foreach ($normalizedValues as $k => $v) {
-                        if (str_contains(strtolower($k), 'tools') && is_string($v) && strlen($v) > 2) {
+                        $kLower = strtolower((string)$k);
+                        if (str_contains($kLower, 'kondisi') || str_contains($kLower, 'foto') || str_contains($kLower, 'status') || str_contains($kLower, 'ketersediaan')) {
+                            continue;
+                        }
+                        if (is_string($v) && in_array(strtolower(trim($v)), $standardToolsLower)) {
                             $inputToolName = trim($v);
                             break;
                         }
@@ -939,6 +990,8 @@ class ReportingApiController extends Controller
                             $q->orWhere('store_name', $storeName);
                         }
                     });
+                } elseif (!empty($storeName) && $storeName !== 'Lokasi Kunjungan Terdaftar') {
+                    $todayToolsQuery->where('store_name', $storeName);
                 }
 
                 $existingToolSubs = $todayToolsQuery->get();
@@ -946,21 +999,23 @@ class ReportingApiController extends Controller
                 $submittedToolNames = [];
                 foreach ($existingToolSubs as $sub) {
                     foreach ($sub->values as $v) {
-                        $fn = strtolower($v->field_name ?? '');
-                        if ($fn === 'nama_tools' || str_contains($fn, 'tools')) {
-                            $tv = trim((string)($v->value_text ?? ''));
-                            if ($tv !== '') {
-                                $submittedToolNames[] = strtolower($tv);
-                            }
+                        $fn = strtolower(trim($v->field_name ?? ''));
+                        // Abaikan field non-nama tools seperti kondisi_tools, foto_tools, status_ketersediaan
+                        if (str_contains($fn, 'kondisi') || str_contains($fn, 'foto') || str_contains($fn, 'status') || str_contains($fn, 'ketersediaan')) {
+                            continue;
+                        }
+                        $tv = trim((string)($v->value_text ?? ''));
+                        if ($tv === '') continue;
+
+                        $tvLower = strtolower($tv);
+                        if ($fn === 'nama_tools' || $fn === 'pilih_tools') {
+                            $submittedToolNames[] = $tvLower;
+                        } elseif (in_array($tvLower, $standardToolsLower)) {
+                            $submittedToolNames[] = $tvLower;
                         }
                     }
                 }
                 $submittedToolNames = array_values(array_unique($submittedToolNames));
-
-                $toolsField = $template->fields->first(function ($f) {
-                    return strtolower($f->field_name) === 'nama_tools';
-                });
-                $maxToolsCount = (!empty($toolsField?->options) && is_array($toolsField->options)) ? count($toolsField->options) : 13;
 
                 // 1. Tolak jika seluruh tools (13 tools) sudah selesai dilaporkan hari ini
                 if (count($submittedToolNames) >= $maxToolsCount && $maxToolsCount > 0) {

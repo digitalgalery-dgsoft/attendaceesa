@@ -124,18 +124,27 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   bool _isWingsToolsCompleted() {
     if (!_isWingsToolsTemplate()) return false;
     if (widget.editSubmission != null) return false;
-    if (widget.template.isCompletedToday) return true;
     final total = _getTotalWingsToolsCount();
-    return total > 0 && (_submittedToolsNames.length >= total || _getRemainingWingsToolsCount() == 0);
+    final validToolsLower = _getWingsToolsList().map((t) => t.trim().toLowerCase()).toSet();
+    final submittedValidCount = _submittedToolsNames.where((t) => validToolsLower.contains(t)).length;
+    if (total > 0 && submittedValidCount >= total) return true;
+    if (widget.template.isCompletedToday && (widget.template.remainingToolsCount == 0 || (widget.template.submittedTools.length >= total && total > 0))) {
+      return true;
+    }
+    return false;
   }
 
   void _initSubmittedTools() {
     if (!_isWingsToolsTemplate()) return;
 
+    final validToolsList = _getWingsToolsList();
+    final validToolsLower = validToolsList.map((t) => t.trim().toLowerCase()).toSet();
+    final int total = validToolsList.isNotEmpty ? validToolsList.length : 13;
+
     // 1. Ambil dari template server jika tersedia (dari submitted_tools)
     for (final st in widget.template.submittedTools) {
       final clean = st.trim().toLowerCase();
-      if (clean.isNotEmpty) {
+      if (clean.isNotEmpty && validToolsLower.contains(clean)) {
         _submittedToolsNames.add(clean);
       }
     }
@@ -149,9 +158,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       if (subDate.year == today.year && subDate.month == today.month && subDate.day == today.day) {
         for (final val in sub.values) {
           final fn = val.fieldName.toLowerCase();
-          if (fn == 'nama_tools' || fn.contains('tools')) {
+          if (fn == 'nama_tools' || fn == 'pilih_tools') {
             final tText = (val.valueText ?? val.valueJson?.toString() ?? '').trim().toLowerCase();
-            if (tText.isNotEmpty) {
+            if (tText.isNotEmpty && validToolsLower.contains(tText)) {
               _submittedToolsNames.add(tText);
             }
           }
@@ -159,9 +168,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       }
     }
 
-    // 3. Jika template.isCompletedToday bernilai true dari server, pastikan seluruh item ditandai selesai
-    if (widget.template.isCompletedToday && widget.editSubmission == null) {
-      for (final t in _getWingsToolsList()) {
+    // 3. Pastikan hanya tools yang valid yang dipertahankan
+    _submittedToolsNames.retainAll(validToolsLower);
+
+    // 4. Jika memang terbukti seluruh tools (>= total) telah diserahkan, tandai selesai
+    if (widget.template.isCompletedToday && widget.editSubmission == null && _submittedToolsNames.length >= total) {
+      for (final t in validToolsList) {
         final clean = t.trim().toLowerCase();
         if (clean.isNotEmpty) {
           _submittedToolsNames.add(clean);
@@ -179,7 +191,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   List<String> _getWingsToolsList() {
     for (final f in widget.template.fields) {
       final fn = f.fieldName.toLowerCase();
-      if (fn == 'nama_tools' || fn.contains('tools')) {
+      if (fn == 'nama_tools' || fn == 'pilih_tools') {
         if (f.options.isNotEmpty) return f.options;
       }
     }
@@ -221,7 +233,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (nextTool.isNotEmpty) {
       for (final f in widget.template.fields) {
         final fn = f.fieldName.toLowerCase();
-        if (fn == 'nama_tools' || fn.contains('tools')) {
+        if (fn == 'nama_tools' || fn == 'pilih_tools') {
           final k = f.id.toString();
           _formValues[k] = nextTool;
           _formValues[f.fieldName] = nextTool;
@@ -1191,8 +1203,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
            name == 'produk_dulux_cbp' ||
            name == 'kategori_produk' ||
            name == 'nama_tools' ||
-           name.contains('tools') ||
-           label.contains('tools') ||
+           name == 'pilih_tools' ||
+           label.contains('pilih tools') ||
            name.contains('properti') ||
            label.contains('properti');
   }
