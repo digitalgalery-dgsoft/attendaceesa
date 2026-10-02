@@ -733,6 +733,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
-            ]);
+            ])
+            ->renderHook(
+                PanelsRenderHook::HEAD_START,
+                fn (): string => '<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">' . "\n",
+            );
     }
 }

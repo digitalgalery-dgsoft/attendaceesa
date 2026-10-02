@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kebijakan Privasi (Privacy Policy) - PT Arina Multi Karya | ESA Groups Mobile</title>
     <meta name="description" content="Kebijakan Privasi resmi aplikasi ESA Groups Mobile di bawah naungan PT Arina Multi Karya sebagai induk usaha ESA Groups.">
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">

@@ -2662,6 +2662,20 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Mengganti referensi kolom fiktif (`nik`, `no_ktp`, `id_card_number`, `parent_id`, `supervisor_nik`, `company_name`, `position`) dengan skema dan relasi fisik riil (`employee_no`, `supervisor_id`, `full_name`, `company->name`, `position->name`).
       - **3. Pengujian & Deployment Cluster**:
         - Verifikasi langsung melalui API login ke 3 node server production (AMK, AKP, ATK) dengan hasil respon sukses (HTTP 200/401 valid JSON tanpa error PostgreSQL).
+- [x] **Milestone 67: Pengamanan Data Privasi Karyawan & Proteksi Anti-Indexing Mesin Pencari Google** (Selesai 02 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Memastikan data pribadi seluruh karyawan (Nama Lengkap, NIK, No. HP/WA, Jabatan, Cabang, Penempatan Toko, Presensi, Roster, dan Foto) terproteksi 100% dari potensi perayapan (crawling) dan indeks mesin pencari Google.
+      - Menutup celah di mana rute pelaporan portal (`/portal/*`, seperti `/portal/employees`) dapat diakses pengunjung publik tanpa login.
+    - **Solusi & Implementasi Layered Defense**:
+      - **1. Penguncian Rute Portal dengan Middleware Auth (`routes/web.php` & `bootstrap/app.php`)**:
+        - Membungkus seluruh rute `/portal/*` dengan middleware `['web', 'auth']`. Pengunjung non-autentikasi otomatis dialihkan ke halaman login (`/login`).
+        - Menambahkan penanganan `redirectGuestsTo(fn () => route('tenant.login'))` pada Laravel 11.
+      - **2. Pembaruan Protokol Crawler (`public/robots.txt`)**:
+        - Mengubah deklarasi dari `Disallow:` (mengizinkan perayapan) menjadi `Disallow: /` (melarang bot perayap merayapi seluruh direktori).
+      - **3. Injeksi Header HTTP Proteksi Global (`SecurityHeadersMiddleware.php` & `.htaccess`)**:
+        - Menambahkan header `X-Robots-Tag: noindex, nofollow, noarchive, nosnippet` pada seluruh respon aplikasi web, API, dan server Apache.
+      - **4. Pemasangan Meta Tag Noindex di Seluruh Template View**:
+        - Menambahkan `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">` pada Filament Admin Panel (via `PanelsRenderHook::HEAD_START` di `AdminPanelProvider.php`), Portal Layout, Tenant Login, Landing Page, dan Server Monitoring.
 
 ---
 

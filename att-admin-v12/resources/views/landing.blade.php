@@ -10,6 +10,7 @@
             {{ $setting->app_name ?? 'ESA Solutions' }} - Ekosistem Presensi & Manajemen Kinerja Terintegrasi
         @endif
     </title>
+    <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
     
     <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

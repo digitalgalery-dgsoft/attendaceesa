@@ -25,6 +25,7 @@
 </IfModule>
 
 <IfModule mod_headers.c>
+    Header set X-Robots-Tag "noindex, nofollow, noarchive, nosnippet"
     <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|apk)$">
         Header set Access-Control-Allow-Origin "*"
     </FilesMatch>

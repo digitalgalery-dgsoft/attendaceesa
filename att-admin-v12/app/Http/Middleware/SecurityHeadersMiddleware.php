@@ -18,6 +18,9 @@ class SecurityHeadersMiddleware
         // Anti-Clickjacking: Only allow framing by the same origin
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
 
+        // Anti-Search Engine Indexing: Prevent web crawlers from indexing confidential employee/HR data
+        $response->headers->set('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet');
+
         // Anti-MIME-Sniffing: Force browser to adhere to declared Content-Type
         $response->headers->set('X-Content-Type-Options', 'nosniff');
 
