@@ -767,8 +767,8 @@ Route::middleware(['web'])->group(function () {
         return redirect()->route('admin.impersonate', ['user' => $user->id]);
     })->name('impersonation.start');
 
-    // Stop Impersonation
-    Route::get('/admin/impersonate-leave', function () {
+    // Stop Impersonation Handler
+    $stopImpersonationHandler = function () {
         if (!session()->has('impersonated_by')) {
             return redirect('/admin');
         }
@@ -781,12 +781,12 @@ Route::middleware(['web'])->group(function () {
         }
 
         return redirect('/admin');
-    })->name('admin.impersonate.leave');
+    };
 
-    // Route alias for impersonation.leave
-    Route::get('/admin/impersonate-stop', function () {
-        return redirect()->route('admin.impersonate.leave');
-    })->name('impersonation.leave');
+    Route::get('/admin/impersonate-leave', $stopImpersonationHandler)->name('admin.impersonate.leave');
+    Route::get('/admin/impersonate-stop', $stopImpersonationHandler)->name('impersonation.leave');
+    Route::get('/admin/stop-impersonation', $stopImpersonationHandler)->name('admin.stop-impersonation');
+    Route::get('/admin/stop-impersonate', $stopImpersonationHandler);
 
     // 3 Server Production Monitoring (Integrated & NOC Standalone)
     Route::get('/admin/server-monitoring-view', [\App\Http\Controllers\Admin\ServerMonitoringController::class, 'index'])->name('admin.server-monitoring.view');
