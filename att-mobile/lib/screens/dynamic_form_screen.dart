@@ -14369,7 +14369,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'JUMLAH / KUANTITI PENJUALAN (DUS/PCS)',
+                    'JUMLAH / KUANTITI PENJUALAN',
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
                   ),
                   const SizedBox(height: 6),
@@ -14577,7 +14577,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  '$q Dus / Pcs',
+                                  '$q Pcs',
                                   style: const TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -14675,7 +14675,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         // ── KPI Card Total Kuantiti ──
         _buildMbrKpiCard(
           title: 'TOTAL KUANTITI PENJUALAN',
-          value: '$totalQty Dus/Pcs',
+          value: '$totalQty Pcs',
           icon: Icons.inventory_rounded,
           color: const Color(0xFF0284C7),
           isDarkMode: isDarkMode,
@@ -14750,7 +14750,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
-                          '$q Dus/Pcs • $payType',
+                          '$q Pcs • $payType',
                           style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: subtitleColor),
                         ),
                       ],
@@ -14763,7 +14763,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      '$q Dus/Pcs',
+                      '$q Pcs',
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -16115,7 +16115,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'JUMLAH / KUANTITI PENJUALAN (DUS/PCS)',
+                        'JUMLAH / KUANTITI PENJUALAN',
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: subtitleColor),
                       ),
                       const SizedBox(height: 6),
@@ -16416,7 +16416,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           type: ToastificationType.success,
           title: const Text('Laporan Penjualan Regular Terkirim'),
           description: Text(
-              '${p.name} ($qty unit, ${_formatRupiah(valRp)}) berhasil dilaporkan.'),
+              '${p.name} ($qty unit) berhasil dilaporkan.'),
           autoCloseDuration: const Duration(seconds: 4),
         );
         setState(() {
