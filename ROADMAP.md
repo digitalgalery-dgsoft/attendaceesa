@@ -2695,6 +2695,18 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - Mengganti kartu ringkasan omset dan nominal bayar menjadi murni *Total Kuantiti Terjual* dan *Varian Produk Terjual*.
         - Menghilangkan badge subtotal rupiah, harga distributor, dan harga toko pada kartu rincian produk Wings Sales.
 
+- **✅ Pembaruan Rilis Mobile, Form Pelaporan & Admin Portal (Selesai 2 Oktober 2026):**
+  - **1. Pembersihan Satuan Input Qty & Build Rilis Mobile (v1.0.164+164)**:
+    - Menghilangkan label teks satuan `(Dus/Pcs)` pada input Quantity form penjualan Wings Sales (`att-mobile/lib/screens/dynamic_form_screen.dart`), sehingga label menjadi lebih bersih dan ringkas: `JUMLAH / KUANTITI PENJUALAN`.
+    - Melakukan auto-bump versioning ke `1.0.164+164` dan kompilasi ulang build rilis **APK** (`app-release.apk`) dan **Google Play App Bundle (AAB)** (`app-release.aab`) di `att-mobile/build/app/outputs/`.
+  - **2. Perbaikan Stop-Impersonation Admin (404 Error Fix)**:
+    - Menambahkan route web `auth/stop-impersonation` yang hilang pada `routes/web.php` dan mengarahkan kembali ke sesi Administrator asal secara mulus tanpa error 404.
+  - **3. Perbaikan Kalkulasi Progress & Submit Form Wings Tools**:
+    - Memperbaiki bug di mana notifikasi submit menyatakan "selesai semua 13 tools" padahal baru disubmit sebagian (misal 10 dari 13 tools).
+    - Memperbarui `ReportingApiController.php` dan `dynamic_form_screen.dart` agar menghitung jumlah kategori tools unik yang terverifikasi submitted terhadap total 13 tools target, serta mencegah form terblokir prematur sebelum seluruh kategori diselesaikan.
+  - **4. Kajian & Blueprint Fitur Google Places Search**:
+    - Menganalisis dan menyusun spesifikasi arsitektur integrasi Google Places Text Search / Autocomplete API untuk form penambahan Work Location baru, lengkap dengan alur auto-fill nama toko, alamat, latitude, longitude, dan sinkronisasi pin peta.
+
 ---
 
 ## 🚀 Rencana Fitur Mendatang (Future Implementation Plans)
