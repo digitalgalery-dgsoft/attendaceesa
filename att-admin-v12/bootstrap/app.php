@@ -29,7 +29,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'tenant.subdomain' => \App\Http\Middleware\IdentifyTenantSubdomain::class,
         ]);
-        $middleware->redirectGuestsTo(fn () => route('tenant.login'));
+        $middleware->redirectGuestsTo('/login');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

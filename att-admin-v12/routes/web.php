@@ -569,7 +569,7 @@ Route::get('/', function (\Illuminate\Http\Request $request) {
 
 // Whitelabel Tenant Portal Auth Routes
 Route::get('/login', [\App\Http\Controllers\Auth\TenantAuthController::class, 'showLoginForm'])->name('tenant.login');
-Route::name('login')->get('/login', [\App\Http\Controllers\Auth\TenantAuthController::class, 'showLoginForm']);
+Route::get('/auth/login', fn () => redirect('/login'))->name('login');
 Route::post('/login', [\App\Http\Controllers\Auth\TenantAuthController::class, 'login'])->name('tenant.login.submit');
 Route::post('/logout', [\App\Http\Controllers\Auth\TenantAuthController::class, 'logout'])->name('tenant.logout');
 
