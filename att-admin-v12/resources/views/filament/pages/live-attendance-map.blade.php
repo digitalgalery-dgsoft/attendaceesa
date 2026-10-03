@@ -8,10 +8,8 @@
     $allBranches = $allBranches ?? \App\Models\Branch::orderBy('name')->get(['id', 'name']);
 @endphp
 
-    {{-- Leaflet Core CSS & MarkerCluster CSS --}}
+    {{-- Leaflet Core CSS --}}
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" crossorigin=""/>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" crossorigin=""/>
 
     <style>
         .live-map-wrapper {
@@ -117,6 +115,8 @@
             border-radius: 14px;
             padding: 16px 20px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+            position: relative;
+            z-index: 50;
         }
         .dark .filter-panel {
             background: #1e293b;
@@ -126,24 +126,148 @@
         .filter-grid {
             display: grid;
             grid-template-columns: repeat(1, minmax(0, 1fr));
-            gap: 12px;
+            gap: 14px;
         }
         @media (min-width: 640px) {
             .filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         }
         @media (min-width: 1024px) {
-            .filter-grid { grid-template-columns: 2fr 2fr 1.5fr 2.5fr auto; align-items: flex-end; }
+            .filter-grid { grid-template-columns: 2.2fr 2.2fr 1.6fr 2.5fr auto; align-items: flex-end; }
+        }
+
+        /* ─── Searchable Dropdown Component ─── */
+        .searchable-select-container {
+            position: relative;
+            width: 100%;
+        }
+
+        .searchable-select-trigger {
+            width: 100%;
+            height: 40px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: 600;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            cursor: pointer;
+            outline: none;
+            transition: all 0.15s ease;
+            box-sizing: border-box;
+            text-align: left;
+        }
+        .dark .searchable-select-trigger {
+            background: #0f172a;
+            border-color: #334155;
+            color: #f8fafc;
+        }
+        .searchable-select-trigger:hover {
+            border-color: #94a3b8;
+        }
+        .searchable-select-trigger.is-active {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        .searchable-select-dropdown {
+            position: absolute;
+            top: calc(100% + 5px);
+            left: 0;
+            width: 100%;
+            min-width: 220px;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 12px;
+            box-shadow: 0 12px 28px -4px rgba(15, 23, 42, 0.18), 0 4px 10px rgba(0, 0, 0, 0.05);
+            z-index: 1000;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .dark .searchable-select-dropdown {
+            background: #0f172a;
+            border-color: #334155;
+            box-shadow: 0 12px 28px -4px rgba(0, 0, 0, 0.5);
+        }
+
+        .searchable-select-searchbox {
+            padding: 8px 10px;
+            border-bottom: 1px solid #f1f5f9;
+            background: #f8fafc;
+        }
+        .dark .searchable-select-searchbox {
+            background: #1e293b;
+            border-color: #334155;
+        }
+
+        .searchable-select-input {
+            width: 100%;
+            padding: 6px 10px;
+            font-size: 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            background: #ffffff;
+            color: #0f172a;
+            outline: none;
+        }
+        .dark .searchable-select-input {
+            background: #0f172a;
+            border-color: #334155;
+            color: #ffffff;
+        }
+
+        .searchable-select-options {
+            max-height: 220px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .searchable-select-option {
+            padding: 8px 12px;
+            font-size: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #334155;
+            transition: background 0.12s;
+        }
+        .dark .searchable-select-option {
+            color: #e2e8f0;
+        }
+        .searchable-select-option:hover {
+            background: #f1f5f9;
+        }
+        .dark .searchable-select-option:hover {
+            background: #1e293b;
+        }
+        .searchable-select-option.is-selected {
+            background: #eff6ff;
+            color: #2563eb;
+            font-weight: 700;
+        }
+        .dark .searchable-select-option.is-selected {
+            background: #1e3a8a44;
+            color: #60a5fa;
         }
 
         .custom-select, .custom-input {
             width: 100%;
-            padding: 9px 14px;
+            height: 40px;
+            padding: 8px 12px;
             font-size: 13px;
             border: 1px solid #cbd5e1;
             border-radius: 10px;
             background: #ffffff;
             color: #0f172a;
             outline: none;
+            box-sizing: border-box;
             transition: border-color 0.15s, box-shadow 0.15s;
         }
         .dark .custom-select, .dark .custom-input {
@@ -208,7 +332,7 @@
             z-index: 999;
             display: flex;
             gap: 8px;
-            background: rgba(255, 255, 255, 0.92);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(8px);
             padding: 6px;
             border-radius: 12px;
@@ -216,7 +340,7 @@
             border: 1px solid rgba(226, 232, 240, 0.8);
         }
         .dark .map-floating-toolbar {
-            background: rgba(15, 23, 42, 0.92);
+            background: rgba(15, 23, 42, 0.95);
             border-color: rgba(51, 65, 85, 0.8);
         }
 
@@ -335,20 +459,24 @@
         }
 
         /* ─── Leaflet Custom Pin Marker ─── */
+        .leaflet-div-icon,
         .leaflet-emp-custom-icon {
             background: transparent !important;
             border: none !important;
         }
 
         .emp-map-pin {
+            width: 46px;
+            height: 56px;
             display: flex;
             flex-direction: column;
             align-items: center;
             cursor: pointer;
+            position: relative;
             transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .emp-map-pin:hover {
-            transform: scale(1.18) translateY(-4px);
+            transform: scale(1.22) translateY(-4px);
             z-index: 99999 !important;
         }
 
@@ -356,14 +484,15 @@
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            border: 3px solid;
+            border: 3px solid #10b981;
             background: #ffffff;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             position: relative;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
 
         .emp-marker-avatar {
@@ -372,6 +501,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            background: #ffffff;
         }
         .emp-marker-avatar img {
             width: 100%;
@@ -398,15 +528,15 @@
             height: 0;
             border-left: 7px solid transparent;
             border-right: 7px solid transparent;
-            border-top: 8px solid;
+            border-top: 8px solid #10b981;
             margin: 0 auto;
-            filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+            filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.3));
         }
 
         .emp-pin-shadow {
             width: 18px;
             height: 5px;
-            background: rgba(0, 0, 0, 0.25);
+            background: rgba(0, 0, 0, 0.3);
             border-radius: 50%;
             margin: -2px auto 0;
             filter: blur(2px);
@@ -474,27 +604,9 @@
             display: flex;
             gap: 8px;
         }
-
-        /* Custom Cluster Badge */
-        .marker-cluster-small {
-            background-color: rgba(16, 185, 129, 0.5) !important;
-        }
-        .marker-cluster-small div {
-            background-color: rgba(16, 185, 129, 0.9) !important;
-            color: #ffffff !important;
-            font-weight: 800 !important;
-        }
-        .marker-cluster-medium {
-            background-color: rgba(59, 130, 246, 0.5) !important;
-        }
-        .marker-cluster-medium div {
-            background-color: rgba(59, 130, 246, 0.9) !important;
-            color: #ffffff !important;
-            font-weight: 800 !important;
-        }
     </style>
 
-    <div class="live-map-wrapper" id="live-map-wrapper">
+    <div class="live-map-wrapper" id="live-map-wrapper" x-data x-init="$nextTick(() => { setTimeout(() => { window.initOrUpdateMap && window.initOrUpdateMap(); }, 80); })">
         
         {{-- 1. Status Bar Header --}}
         <div class="live-status-bar">
@@ -517,7 +629,7 @@
 
             <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
                 <div style="text-align: right; font-size: 12px; color: #94a3b8;">
-                    Waktu Server: <strong style="color: #ffffff; font-family: monospace;" id="live-clock-display">{{ $summary['timestamp'] }}</strong>
+                    Waktu Server: <strong style="color: #ffffff; font-family: monospace;" id="live-clock-display">{{ $summary['timestamp'] ?? date('H:i:s') . ' WIB' }}</strong>
                 </div>
 
                 {{-- Auto Refresh Toggle --}}
@@ -536,7 +648,7 @@
                 <div>
                     <span style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Sedang Check-in</span>
                     <div style="font-size: 26px; font-weight: 900; color: #0f172a; margin-top: 4px;" id="kpi-total-checkedin" class="dark:text-white">
-                        {{ $summary['total_checked_in'] }}
+                        {{ $summary['total_checked_in'] ?? count($employees) }}
                     </div>
                     <span style="font-size: 11px; color: #10b981; font-weight: 600;">● Sesi Presensi Aktif</span>
                 </div>
@@ -552,7 +664,7 @@
                 <div>
                     <span style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">GPS Live Tracking</span>
                     <div style="font-size: 26px; font-weight: 900; color: #059669; margin-top: 4px;" id="kpi-total-live">
-                        {{ $summary['total_live_gps'] }}
+                        {{ $summary['total_live_gps'] ?? 0 }}
                     </div>
                     <span style="font-size: 11px; color: #059669; font-weight: 600;">Koordinat Bergerak Terkini</span>
                 </div>
@@ -568,7 +680,7 @@
                 <div>
                     <span style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Titik Check-in</span>
                     <div style="font-size: 26px; font-weight: 900; color: #2563eb; margin-top: 4px;" id="kpi-total-checkin">
-                        {{ $summary['total_checkin_point'] }}
+                        {{ $summary['total_checkin_point'] ?? 0 }}
                     </div>
                     <span style="font-size: 11px; color: #2563eb; font-weight: 600;">Lokasi Saat Presensi Masuk</span>
                 </div>
@@ -585,9 +697,9 @@
                 <div>
                     <span style="font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase;">Prinsiple & Area</span>
                     <div style="font-size: 26px; font-weight: 900; color: #7c3aed; margin-top: 4px;" id="kpi-coverage">
-                        {{ $summary['active_principals_count'] }} <span style="font-size: 14px; font-weight: 600; color: #64748b;">Prinsiple</span>
+                        {{ $summary['active_principals_count'] ?? 0 }} <span style="font-size: 14px; font-weight: 600; color: #64748b;">Prinsiple</span>
                     </div>
-                    <span style="font-size: 11px; color: #7c3aed; font-weight: 600;">{{ $summary['active_branches_count'] }} Area / Cabang Aktif</span>
+                    <span style="font-size: 11px; color: #7c3aed; font-weight: 600;">{{ $summary['active_branches_count'] ?? 0 }} Area / Cabang Aktif</span>
                 </div>
                 <div class="kpi-icon" style="background: #f5f3ff; color: #7c3aed;">
                     <svg style="width: 24px; height: 24px;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -597,36 +709,197 @@
             </div>
         </div>
 
-        {{-- 3. Filter Bar (Prinsiple, Area, Tipe Titik, Pencarian) --}}
+        {{-- 3. Filter Bar (Searchable Prinsiple, Searchable Area, Tipe Titik, Pencarian) --}}
         <div class="filter-panel">
             <div class="filter-grid">
-                {{-- Filter Prinsiple --}}
-                <div>
+                
+                {{-- 1. Searchable Filter Prinsiple --}}
+                <div 
+                    x-data="{
+                        open: false,
+                        search: '',
+                        selectedId: @entangle('selectedPrincipalId').live,
+                        options: @js($allPrincipals),
+                        get selectedLabel() {
+                            if (!this.selectedId) return '-- Semua Prinsiple --';
+                            const found = this.options.find(o => String(o.id) === String(this.selectedId));
+                            return found ? found.name : '-- Semua Prinsiple --';
+                        },
+                        get filteredOptions() {
+                            if (!this.search.trim()) return this.options;
+                            const q = this.search.toLowerCase();
+                            return this.options.filter(o => o.name.toLowerCase().includes(q));
+                        },
+                        select(id) {
+                            this.selectedId = id;
+                            this.open = false;
+                            this.search = '';
+                        },
+                        clear() {
+                            this.selectedId = '';
+                            this.open = false;
+                            this.search = '';
+                        }
+                    }"
+                    class="searchable-select-container"
+                    @click.outside="open = false"
+                >
                     <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
-                        🏢 Filter Prinsiple
+                        🏢 Filter Prinsiple (Searchable)
                     </label>
-                    <select wire:model.live="selectedPrincipalId" class="custom-select">
-                        <option value="">-- Semua Prinsiple --</option>
-                        @foreach ($allPrincipals as $p)
-                            <option value="{{ (string)$p->id }}">{{ $p->name }}</option>
-                        @endforeach
-                    </select>
+
+                    <button 
+                        type="button" 
+                        @click="open = !open; if(open) $nextTick(() => $refs.principalSearchInput.focus())"
+                        class="searchable-select-trigger"
+                        :class="{'is-active': open || selectedId}"
+                    >
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" x-text="selectedLabel"></span>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span 
+                                x-show="selectedId" 
+                                @click.stop="clear()" 
+                                style="color: #94a3b8; font-size: 14px; font-weight: bold; padding: 0 4px;"
+                                title="Hapus filter"
+                            >✕</span>
+                            <span style="font-size: 10px; color: #64748b; transition: transform 0.2s;" :style="open ? 'transform: rotate(180deg);' : ''">▼</span>
+                        </div>
+                    </button>
+
+                    <div x-show="open" style="display: none;" class="searchable-select-dropdown">
+                        <div class="searchable-select-searchbox">
+                            <input 
+                                x-ref="principalSearchInput"
+                                x-model="search"
+                                type="text" 
+                                class="searchable-select-input"
+                                placeholder="Cari nama prinsiple..." 
+                                @keydown.escape="open = false"
+                            />
+                        </div>
+
+                        <div class="searchable-select-options">
+                            <div 
+                                @click="clear()"
+                                class="searchable-select-option"
+                                :class="{'is-selected': !selectedId}"
+                            >
+                                <span>-- Semua Prinsiple --</span>
+                                <span x-show="!selectedId">✓</span>
+                            </div>
+
+                            <template x-for="opt in filteredOptions" :key="opt.id">
+                                <div 
+                                    @click="select(String(opt.id))"
+                                    class="searchable-select-option"
+                                    :class="{'is-selected': String(selectedId) === String(opt.id)}"
+                                >
+                                    <span x-text="opt.name"></span>
+                                    <span x-show="String(selectedId) === String(opt.id)">✓</span>
+                                </div>
+                            </template>
+
+                            <div x-show="filteredOptions.length === 0" style="padding: 12px; text-align: center; font-size: 11px; color: #94a3b8;">
+                                Tidak ada prinsiple yang cocok
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {{-- Filter Area / Cabang --}}
-                <div>
+                {{-- 2. Searchable Filter Area / Cabang --}}
+                <div 
+                    x-data="{
+                        open: false,
+                        search: '',
+                        selectedId: @entangle('selectedBranchId').live,
+                        options: @js($allBranches),
+                        get selectedLabel() {
+                            if (!this.selectedId) return '-- Semua Area / Cabang --';
+                            const found = this.options.find(o => String(o.id) === String(this.selectedId));
+                            return found ? found.name : '-- Semua Area / Cabang --';
+                        },
+                        get filteredOptions() {
+                            if (!this.search.trim()) return this.options;
+                            const q = this.search.toLowerCase();
+                            return this.options.filter(o => o.name.toLowerCase().includes(q));
+                        },
+                        select(id) {
+                            this.selectedId = id;
+                            this.open = false;
+                            this.search = '';
+                        },
+                        clear() {
+                            this.selectedId = '';
+                            this.open = false;
+                            this.search = '';
+                        }
+                    }"
+                    class="searchable-select-container"
+                    @click.outside="open = false"
+                >
                     <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
-                        📍 Filter Area / Cabang
+                        📍 Filter Area / Cabang (Searchable)
                     </label>
-                    <select wire:model.live="selectedBranchId" class="custom-select">
-                        <option value="">-- Semua Area / Cabang --</option>
-                        @foreach ($allBranches as $b)
-                            <option value="{{ (string)$b->id }}">{{ $b->name }}</option>
-                        @endforeach
-                    </select>
+
+                    <button 
+                        type="button" 
+                        @click="open = !open; if(open) $nextTick(() => $refs.branchSearchInput.focus())"
+                        class="searchable-select-trigger"
+                        :class="{'is-active': open || selectedId}"
+                    >
+                        <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" x-text="selectedLabel"></span>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <span 
+                                x-show="selectedId" 
+                                @click.stop="clear()" 
+                                style="color: #94a3b8; font-size: 14px; font-weight: bold; padding: 0 4px;"
+                                title="Hapus filter"
+                            >✕</span>
+                            <span style="font-size: 10px; color: #64748b; transition: transform 0.2s;" :style="open ? 'transform: rotate(180deg);' : ''">▼</span>
+                        </div>
+                    </button>
+
+                    <div x-show="open" style="display: none;" class="searchable-select-dropdown">
+                        <div class="searchable-select-searchbox">
+                            <input 
+                                x-ref="branchSearchInput"
+                                x-model="search"
+                                type="text" 
+                                class="searchable-select-input"
+                                placeholder="Cari nama area / cabang..." 
+                                @keydown.escape="open = false"
+                            />
+                        </div>
+
+                        <div class="searchable-select-options">
+                            <div 
+                                @click="clear()"
+                                class="searchable-select-option"
+                                :class="{'is-selected': !selectedId}"
+                            >
+                                <span>-- Semua Area / Cabang --</span>
+                                <span x-show="!selectedId">✓</span>
+                            </div>
+
+                            <template x-for="opt in filteredOptions" :key="opt.id">
+                                <div 
+                                    @click="select(String(opt.id))"
+                                    class="searchable-select-option"
+                                    :class="{'is-selected': String(selectedId) === String(opt.id)}"
+                                >
+                                    <span x-text="opt.name"></span>
+                                    <span x-show="String(selectedId) === String(opt.id)">✓</span>
+                                </div>
+                            </template>
+
+                            <div x-show="filteredOptions.length === 0" style="padding: 12px; text-align: center; font-size: 11px; color: #94a3b8;">
+                                Tidak ada area yang cocok
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                {{-- Filter Tipe Titik --}}
+                {{-- 3. Filter Tipe Titik --}}
                 <div>
                     <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
                         🛰️ Sumber Titik
@@ -638,7 +911,7 @@
                     </select>
                 </div>
 
-                {{-- Pencarian Cepat Nama / NIK --}}
+                {{-- 4. Pencarian Cepat Nama / NIK --}}
                 <div>
                     <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
                         🔍 Cari Karyawan / NIK / Jabatan
@@ -651,12 +924,12 @@
                     />
                 </div>
 
-                {{-- Reset Filter Button --}}
+                {{-- 5. Reset Filter Button --}}
                 <div>
                     <button 
                         type="button" 
                         wire:click="resetFilters" 
-                        style="width: 100%; height: 38px; padding: 0 16px; font-size: 12px; font-weight: 700; border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
+                        style="width: 100%; height: 40px; padding: 0 16px; font-size: 12px; font-weight: 700; border-radius: 10px; border: 1px solid #cbd5e1; background: #f8fafc; color: #475569; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.15s ease;"
                         onmouseover="this.style.background='#e2e8f0';"
                         onmouseout="this.style.background='#f8fafc';"
                     >
@@ -681,8 +954,8 @@
                         🛰️ Satelit
                     </button>
                     <div style="width: 1px; height: 18px; background: #cbd5e1; margin: 0 2px;"></div>
-                    <button type="button" class="toolbar-btn" id="btn-recenter-all" title="Pusatkan Peta ke Seluruh Karyawan">
-                        🎯 Pusatkan
+                    <button type="button" class="toolbar-btn" id="btn-recenter-all" title="Pusatkan Peta ke Seluruh Karyawan Aktif">
+                        🎯 Fokus Karyawan
                     </button>
                     <button type="button" class="toolbar-btn" id="btn-fullscreen-toggle" title="Layar Penuh">
                         ⛶ Fullscreen
@@ -713,7 +986,7 @@
                     @forelse ($employees as $emp)
                         <div 
                             class="emp-list-item" 
-                            onclick="focusEmployeeOnMap({{ $emp['id'] }})"
+                            onclick="window.focusEmployeeOnMap({{ $emp['id'] }})"
                             data-emp-id="{{ $emp['id'] }}"
                             title="Klik untuk melihat di peta"
                         >
@@ -768,17 +1041,15 @@
 
     </div>
 
-    {{-- Leaflet JS & MarkerCluster JS --}}
+    {{-- Leaflet JS Core --}}
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" crossorigin=""></script>
 
     <script>
     (function () {
         let map = null;
-        let clusterGroup = null;
+        let markersGroup = null;
         let markersMap = {};
-        let initialData = @json($employees);
-        let summaryData = @json($summary);
+        window.liveAttendanceData = @json($employees);
 
         let streetLayer = null;
         let satelliteLayer = null;
@@ -788,174 +1059,186 @@
         let countdownTimerId = null;
         let secondsRemaining = 30;
 
-        function initMap() {
-            if (map !== null) return;
-
+        /**
+         * Inisialisasi atau re-render Peta Leaflet
+         */
+        window.initOrUpdateMap = function () {
             const mapEl = document.getElementById('live-map-container');
             if (!mapEl) return;
 
-            // Street tile (OpenStreetMap)
-            streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '&copy; OpenStreetMap contributors'
-            });
+            if (typeof L === 'undefined' || !L.map) {
+                setTimeout(window.initOrUpdateMap, 100);
+                return;
+            }
 
-            // Satellite tile (Esri World Imagery)
-            satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 19,
-                attribution: '&copy; Esri &mdash; World Imagery'
-            });
+            // Jika instance map lama ada tapi sudah tidak terpasang di DOM atau kontainer berubah
+            if (map) {
+                try {
+                    if (!document.body.contains(mapEl) || map.getContainer() !== mapEl) {
+                        map.remove();
+                        map = null;
+                        markersGroup = null;
+                    }
+                } catch (e) {
+                    map = null;
+                    markersGroup = null;
+                }
+            }
 
-            // Initialize Leaflet centered around Indonesia archipelago
-            map = L.map('live-map-container', {
-                center: [-2.5489, 118.0149],
-                zoom: 5,
-                layers: [streetLayer]
-            });
+            if (!map) {
+                // Bersihkan properti internal Leaflet pada DOM jika ada dari render sebelumnya
+                if (mapEl._leaflet_id) {
+                    delete mapEl._leaflet_id;
+                }
 
-            // Initialize MarkerClusterGroup
-            clusterGroup = L.markerClusterGroup({
-                maxClusterRadius: 40,
-                spiderfyOnMaxZoom: true,
-                showCoverageOnHover: false,
-                zoomToBoundsOnClick: true,
-                iconCreateFunction: function(cluster) {
-                    const count = cluster.getChildCount();
-                    let cClass = 'marker-cluster-small';
-                    if (count > 10) cClass = 'marker-cluster-medium';
-                    if (count > 30) cClass = 'marker-cluster-large';
+                // Street tile
+                streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 19,
+                    attribution: '&copy; OpenStreetMap contributors'
+                });
 
-                    return L.divIcon({
-                        html: '<div><span>' + count + '</span></div>',
-                        className: 'marker-cluster ' + cClass,
-                        iconSize: L.point(40, 40)
+                // Satellite tile
+                satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    maxZoom: 19,
+                    attribution: '&copy; Esri World Imagery'
+                });
+
+                // Inisialisasi peta Leaflet
+                map = L.map('live-map-container', {
+                    center: [-7.5, 112.5],
+                    zoom: 8,
+                    layers: [streetLayer]
+                });
+
+                // Layer group langsung bawaan Leaflet Core (100% reliable)
+                markersGroup = L.featureGroup().addTo(map);
+
+                setTimeout(function () {
+                    if (map) map.invalidateSize();
+                }, 200);
+
+                // Layer toggle buttons
+                const btnStreet = document.getElementById('btn-layer-street');
+                const btnSatellite = document.getElementById('btn-layer-satellite');
+
+                if (btnStreet && btnSatellite) {
+                    btnStreet.addEventListener('click', function () {
+                        if (currentLayer !== 'street') {
+                            map.removeLayer(satelliteLayer);
+                            map.addLayer(streetLayer);
+                            currentLayer = 'street';
+                            btnStreet.classList.add('active');
+                            btnSatellite.classList.remove('active');
+                        }
+                    });
+
+                    btnSatellite.addEventListener('click', function () {
+                        if (currentLayer !== 'satellite') {
+                            map.removeLayer(streetLayer);
+                            map.addLayer(satelliteLayer);
+                            currentLayer = 'satellite';
+                            btnSatellite.classList.add('active');
+                            btnStreet.classList.remove('active');
+                        }
                     });
                 }
-            });
 
-            map.addLayer(clusterGroup);
+                // Recenter all button (fokus ke seluruh karyawan check-in)
+                const btnRecenter = document.getElementById('btn-recenter-all');
+                const btnFitAction = document.getElementById('btn-fit-bounds-action');
 
-            // Render initial data
-            renderMarkers(initialData);
+                if (btnRecenter) btnRecenter.addEventListener('click', focusAllMarkers);
+                if (btnFitAction) btnFitAction.addEventListener('click', focusAllMarkers);
 
-            // Layer toggle buttons
-            const btnStreet = document.getElementById('btn-layer-street');
-            const btnSatellite = document.getElementById('btn-layer-satellite');
+                // Fullscreen toggle button
+                const btnFullscreen = document.getElementById('btn-fullscreen-toggle');
+                const mapCard = document.getElementById('map-viewport-card');
 
-            if (btnStreet && btnSatellite) {
-                btnStreet.addEventListener('click', function () {
-                    if (currentLayer !== 'street') {
-                        map.removeLayer(satelliteLayer);
-                        map.addLayer(streetLayer);
-                        currentLayer = 'street';
-                        btnStreet.classList.add('active');
-                        btnSatellite.classList.remove('active');
-                    }
-                });
-
-                btnSatellite.addEventListener('click', function () {
-                    if (currentLayer !== 'satellite') {
-                        map.removeLayer(streetLayer);
-                        map.addLayer(satelliteLayer);
-                        currentLayer = 'satellite';
-                        btnSatellite.classList.add('active');
-                        btnStreet.classList.remove('active');
-                    }
-                });
-            }
-
-            // Recenter all button
-            const btnRecenter = document.getElementById('btn-recenter-all');
-            const btnFitAction = document.getElementById('btn-fit-bounds-action');
-
-            function fitBoundsAction() {
-                if (clusterGroup && clusterGroup.getLayers().length > 0) {
-                    map.fitBounds(clusterGroup.getBounds(), { padding: [50, 50], maxZoom: 16 });
-                } else {
-                    map.setView([-2.5489, 118.0149], 5);
-                }
-            }
-
-            if (btnRecenter) btnRecenter.addEventListener('click', fitBoundsAction);
-            if (btnFitAction) btnFitAction.addEventListener('click', fitBoundsAction);
-
-            // Fullscreen toggle button
-            const btnFullscreen = document.getElementById('btn-fullscreen-toggle');
-            const mapCard = document.getElementById('map-viewport-card');
-
-            if (btnFullscreen && mapCard) {
-                btnFullscreen.addEventListener('click', function () {
-                    mapCard.classList.toggle('map-fullscreen-active');
-                    const isFull = mapCard.classList.contains('map-fullscreen-active');
-                    btnFullscreen.innerHTML = isFull ? '✕ Keluar Layar Penuh' : '⛶ Fullscreen';
-                    setTimeout(function () {
-                        map.invalidateSize();
-                    }, 300);
-                });
-            }
-
-            // Auto-refresh switch logic
-            const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
-            const countdownEl = document.getElementById('refresh-countdown');
-
-            function startAutoRefresh() {
-                secondsRemaining = 30;
-                if (countdownEl) {
-                    countdownEl.style.display = 'inline';
-                    countdownEl.textContent = '(' + secondsRemaining + 's)';
+                if (btnFullscreen && mapCard) {
+                    btnFullscreen.addEventListener('click', function () {
+                        mapCard.classList.toggle('map-fullscreen-active');
+                        const isFull = mapCard.classList.contains('map-fullscreen-active');
+                        btnFullscreen.innerHTML = isFull ? '✕ Keluar Layar Penuh' : '⛶ Fullscreen';
+                        setTimeout(function () {
+                            map.invalidateSize();
+                        }, 300);
+                    });
                 }
 
-                clearInterval(countdownTimerId);
-                countdownTimerId = setInterval(function () {
-                    secondsRemaining--;
-                    if (secondsRemaining <= 0) {
-                        secondsRemaining = 30;
-                        if (window.Livewire) {
-                            @this.fetchLatestCoordinates();
+                // Auto-refresh switch logic
+                const autoRefreshToggle = document.getElementById('auto-refresh-toggle');
+                const countdownEl = document.getElementById('refresh-countdown');
+
+                function startAutoRefresh() {
+                    secondsRemaining = 30;
+                    if (countdownEl) {
+                        countdownEl.style.display = 'inline';
+                        countdownEl.textContent = '(' + secondsRemaining + 's)';
+                    }
+
+                    clearInterval(countdownTimerId);
+                    countdownTimerId = setInterval(function () {
+                        secondsRemaining--;
+                        if (secondsRemaining <= 0) {
+                            secondsRemaining = 30;
+                            if (window.Livewire) {
+                                @this.fetchLatestCoordinates();
+                            }
                         }
+                        if (countdownEl) countdownEl.textContent = '(' + secondsRemaining + 's)';
+                    }, 1000);
+                }
+
+                function stopAutoRefresh() {
+                    clearInterval(countdownTimerId);
+                    if (countdownEl) countdownEl.style.display = 'none';
+                }
+
+                if (autoRefreshToggle) {
+                    autoRefreshToggle.addEventListener('change', function () {
+                        if (this.checked) {
+                            startAutoRefresh();
+                        } else {
+                            stopAutoRefresh();
+                        }
+                    });
+                }
+
+                // Live server clock ticker
+                const clockEl = document.getElementById('live-clock-display');
+                setInterval(function () {
+                    if (clockEl) {
+                        const now = new Date();
+                        const hours = String(now.getHours()).padStart(2, '0');
+                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                        const seconds = String(now.getSeconds()).padStart(2, '0');
+                        clockEl.textContent = hours + ':' + minutes + ':' + seconds + ' WIB';
                     }
-                    if (countdownEl) countdownEl.textContent = '(' + secondsRemaining + 's)';
                 }, 1000);
             }
 
-            function stopAutoRefresh() {
-                clearInterval(countdownTimerId);
-                if (countdownEl) countdownEl.style.display = 'none';
-            }
-
-            if (autoRefreshToggle) {
-                autoRefreshToggle.addEventListener('change', function () {
-                    if (this.checked) {
-                        startAutoRefresh();
-                    } else {
-                        stopAutoRefresh();
-                    }
-                });
-            }
-
-            // Update live clock every second
-            const clockEl = document.getElementById('live-clock-display');
-            setInterval(function () {
-                if (clockEl) {
-                    const now = new Date();
-                    const hours = String(now.getHours()).padStart(2, '0');
-                    const minutes = String(now.getMinutes()).padStart(2, '0');
-                    const seconds = String(now.getSeconds()).padStart(2, '0');
-                    clockEl.textContent = hours + ':' + minutes + ':' + seconds + ' WIB';
-                }
-            }, 1000);
-        }
+            // Render seluruh titik karyawan yang sedang check-in
+            renderMarkers(window.liveAttendanceData || []);
+        };
 
         /**
-         * Render marker kustom untuk setiap karyawan
+         * Render marker kustom untuk setiap karyawan dan langsung FOKUS ke area karyawan
          */
         function renderMarkers(employees) {
-            if (!clusterGroup) return;
+            if (!map) return;
 
-            clusterGroup.clearLayers();
+            if (!markersGroup) {
+                markersGroup = L.featureGroup().addTo(map);
+            } else {
+                markersGroup.clearLayers();
+            }
+
             markersMap = {};
 
-            if (!employees || employees.length === 0) return;
+            if (!employees || employees.length === 0) {
+                map.setView([-7.2575, 112.7521], 8);
+                return;
+            }
 
             const latlngs = [];
 
@@ -965,27 +1248,52 @@
                 const lat = parseFloat(emp.lat);
                 const lng = parseFloat(emp.lng);
 
+                if (isNaN(lat) || isNaN(lng) || (lat === 0 && lng === 0)) return;
+
                 const markerIcon = createEmployeePinIcon(emp);
-                const marker = L.marker([lat, lng], { icon: markerIcon });
+                const marker = L.marker([lat, lng], { 
+                    icon: markerIcon,
+                    title: emp.name,
+                    riseOnHover: true
+                });
 
                 // Popup Template
                 const popupContent = createPopupHtml(emp);
-                marker.bindPopup(popupContent, { maxWidth: 320 });
+                marker.bindPopup(popupContent, { maxWidth: 320, offset: [0, -30] });
 
                 // Tooltip on hover
-                marker.bindTooltip(`<strong>${emp.name}</strong><br><span style="font-size:11px;color:#64748b;">${emp.principal} • ${emp.position}</span>`, {
+                marker.bindTooltip(`<strong>${emp.name}</strong><br><span style="font-size:11px;color:#64748b;">${emp.principal} • ${emp.branch}</span>`, {
                     direction: 'top',
-                    offset: [0, -48]
+                    offset: [0, -45]
                 });
 
-                clusterGroup.addLayer(marker);
+                markersGroup.addLayer(marker);
                 markersMap[emp.id] = marker;
                 latlngs.push([lat, lng]);
             });
 
-            if (latlngs.length > 0 && map) {
+            // FOKUSKAN PETA LANGSUNG KE SELURUH KARYAWAN YANG SEDANG CHECK-IN
+            if (latlngs.length === 1) {
+                map.setView(latlngs[0], 16);
+            } else if (latlngs.length > 1) {
+                map.invalidateSize();
                 const bounds = L.latLngBounds(latlngs);
-                map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+                }
+            }
+        }
+
+        /**
+         * Tombol fokus ke seluruh marker aktif
+         */
+        function focusAllMarkers() {
+            if (!map || !markersGroup) return;
+            const bounds = markersGroup.getBounds();
+            if (bounds.isValid()) {
+                map.fitBounds(bounds, { padding: [60, 60], maxZoom: 15 });
+            } else {
+                map.setView([-7.2575, 112.7521], 8);
             }
         }
 
@@ -1113,49 +1421,43 @@
         }
 
         /**
-         * Global click handler untuk item di daftar sidebar
+         * Mengarahkan kamera peta ke titik karyawan saat nama diklik di sidebar
          */
         window.focusEmployeeOnMap = function(empId) {
             const marker = markersMap[empId];
             if (marker && map) {
-                if (clusterGroup && clusterGroup.hasLayer(marker)) {
-                    clusterGroup.zoomToShowLayer(marker, function () {
-                        marker.openPopup();
-                    });
-                } else {
-                    map.flyTo(marker.getLatLng(), 17, { duration: 1.2 });
-                    marker.openPopup();
-                }
+                map.flyTo(marker.getLatLng(), 17, { duration: 1.2 });
+                marker.openPopup();
             }
         };
 
-        // Initialize on DOM load
-        document.addEventListener('DOMContentLoaded', function () {
-            initMap();
-        });
-
-        // Re-initialize or update on Livewire event
+        // Initialize on all possible events
+        document.addEventListener('DOMContentLoaded', window.initOrUpdateMap);
+        document.addEventListener('livewire:navigated', window.initOrUpdateMap);
         document.addEventListener('livewire:initialized', function () {
-            initMap();
+            window.initOrUpdateMap();
 
             Livewire.on('map-data-updated', function (payload) {
                 const data = Array.isArray(payload) ? payload[0] : payload;
                 if (!data) return;
 
                 if (data.employees) {
+                    window.liveAttendanceData = data.employees;
                     renderMarkers(data.employees);
                 }
 
-                // Update KPI text jika ada
+                // Update KPI text
                 if (data.summary) {
                     const elCheckin = document.getElementById('kpi-total-checkedin');
                     const elLive = document.getElementById('kpi-total-live');
                     const elPt = document.getElementById('kpi-total-checkin');
+                    const elCoverage = document.getElementById('kpi-coverage');
                     const elBadge = document.getElementById('sidebar-count-badge');
 
                     if (elCheckin) elCheckin.textContent = data.summary.total_checked_in;
                     if (elLive) elLive.textContent = data.summary.total_live_gps;
                     if (elPt) elPt.textContent = data.summary.total_checkin_point;
+                    if (elCoverage) elCoverage.innerHTML = `${data.summary.active_principals_count} <span style="font-size: 14px; font-weight: 600; color: #64748b;">Prinsiple</span>`;
                     if (elBadge) elBadge.textContent = (data.employees ? data.employees.length : 0) + ' Titik';
                 }
             });

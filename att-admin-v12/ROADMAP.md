@@ -2672,8 +2672,8 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - **Status Bar Real-Time**: Dilengkapi radar pulse hijau, jam live server WIB, dan switch auto-refresh (interval 30 detik).
         - **4 Kartu Metrik KPI**: Total Sedang Check-in, GPS Live Tracking (Bergerak), Titik Check-in Saja, dan Cakupan Prinsiple & Area Lapangan.
         - **Filter Lengkap**: Dropdown Prinsiple, Dropdown Area / Cabang, Pilihan Sumber Titik, dan Live Search Input dengan tombol reset.
-        - **Custom Marker Pin Avatar**: Pin berpresisi tinggi dengan border indikator status (Hijau untuk GPS Live Tracking, Biru untuk Titik Presensi Masuk). Menampilkan foto profil bulat atau 2 huruf inisial kapital dengan penanganan `onerror` mulus.
-        - **Marker Clustering (`leaflet.markercluster`)**: Mengelompokkan titik koordinat yang berdekatan dengan rapi, dan membesar (*spiderfy*) secara mulus saat di-zoom.
+        - **Marker Rendering Langsung & Autofocus Otomatis**: Titik marker dirender langsung menggunakan Leaflet `featureGroup` bawaan tanpa dependensi plugin eksternal, memastikan pin profil/inisial tampil 100% instan dan peta seketika memusatkan kamera (*autofocus & fitBounds*) ke wilayah penempatan karyawan yang sedang aktif check-in.
+        - **Searchable Dropdown Filter**: Mengintegrasikan dropdown pencarian instan (*searchable combobox*) untuk Filter Prinsiple dan Filter Area / Cabang dengan keyboard search, clear selection, dan highlight aktif.
         - **Popup Informatif**: Menampilkan foto/inisial, nama, NIK, jabatan, prinsiple, area, waktu check-in, update GPS terakhir (*diffForHumans*), alamat/toko, tombol langsung ke Google Maps dan tautan Riwayat Rute Tracking harian.
         - **Sidebar Karyawan Interaktif**: Daftar seluruh karyawan terpetakan di samping peta; mengklik kartu karyawan langsung mengarahkan kamera peta (*flyTo*) ke titik presensi karyawan terkait dan membuka pop-up-nya.
         - **Pilihan Layer Peta**: Tombol switch antara Peta Jalan (*OpenStreetMap*) dan Citra Satelit (*Esri World Imagery*), serta tombol Fullscreen dan Pusatkan Peta.
