@@ -2704,8 +2704,27 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
   - **3. Perbaikan Kalkulasi Progress & Submit Form Wings Tools**:
     - Memperbaiki bug di mana notifikasi submit menyatakan "selesai semua 13 tools" padahal baru disubmit sebagian (misal 10 dari 13 tools).
     - Memperbarui `ReportingApiController.php` dan `dynamic_form_screen.dart` agar menghitung jumlah kategori tools unik yang terverifikasi submitted terhadap total 13 tools target, serta mencegah form terblokir prematur sebelum seluruh kategori diselesaikan.
-  - **4. Kajian & Blueprint Fitur Google Places Search**:
-    - Menganalisis dan menyusun spesifikasi arsitektur integrasi Google Places Text Search / Autocomplete API untuk form penambahan Work Location baru, lengkap dengan alur auto-fill nama toko, alamat, latitude, longitude, dan sinkronisasi pin peta.
+- [x] **Milestone 69: Halaman Live Map Monitoring Presensi Karyawan Khusus Administrator (Filter Area & Prinsiple, Marker Foto / Inisial)** (Selesai 03 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Manajemen dan Administrator memerlukan visualisasi peta terpusat pada Dashboard Web Admin Filament untuk memantau titik koordinat karyawan lapangan yang sedang check-in secara real-time.
+      - Halaman dilindungi secara ketat **khusus role Administrator** (`isAdministrator`).
+      - Peta wajib dapat difilter secara fleksibel berdasarkan **Prinsiple** dan **Area / Cabang**, didukung opsi tipe titik (Live GPS vs Check-in Point) dan pencarian live nama/NIK karyawan.
+      - Setiap titik koordinat pada peta menampilkan **foto profil karyawan** dengan auto-fallback ke **inisial nama 2 huruf** berlatar palet warna dinamis jika belum memiliki foto.
+    - **Solusi & Implementasi**:
+      - **1. Halaman Filament Dedicated (`LiveAttendanceMap.php`)**:
+        - Dibuat pada `app/Filament/Pages/LiveAttendanceMap.php` di bawah grup navigasi *Attendance & Time Management* dengan icon `heroicon-o-globe-alt`.
+        - Dilengkapi proteksi akses ketat `canAccess()` (memeriksa `isAdministrator()`, `isSuperAdmin()`, role admin) serta `abort_unless(static::canAccess(), 403)`.
+        - Menggunakan kueri cerdas 2 batch (tanpa N+1 query) untuk mengambil seluruh sesi kehadiran aktif (`checkin_at IS NOT NULL` dan `checkout_at IS NULL` dalam rentang 24 jam) serta titik GPS live bergerak terbaru dari `tracking_histories` dengan fallback ke `attendance_logs` presensi masuk.
+        - Memvalidasi batas geografis Indonesia (`isValidCoordinate`) untuk mencegah titik koordinat 0,0 atau anomali.
+      - **2. Tampilan Peta Interaktif & Custom DivIcon Leaflet (`live-attendance-map.blade.php`)**:
+        - **Status Bar Real-Time**: Dilengkapi radar pulse hijau, jam live server WIB, dan switch auto-refresh (interval 30 detik).
+        - **4 Kartu Metrik KPI**: Total Sedang Check-in, GPS Live Tracking (Bergerak), Titik Check-in Saja, dan Cakupan Prinsiple & Area Lapangan.
+        - **Filter Lengkap**: Dropdown Prinsiple, Dropdown Area / Cabang, Pilihan Sumber Titik, dan Live Search Input dengan tombol reset.
+        - **Custom Marker Pin Avatar**: Pin berpresisi tinggi dengan border indikator status (Hijau untuk GPS Live Tracking, Biru untuk Titik Presensi Masuk). Menampilkan foto profil bulat atau 2 huruf inisial kapital dengan penanganan `onerror` mulus.
+        - **Marker Clustering (`leaflet.markercluster`)**: Mengelompokkan titik koordinat yang berdekatan dengan rapi, dan membesar (*spiderfy*) secara mulus saat di-zoom.
+        - **Popup Informatif**: Menampilkan foto/inisial, nama, NIK, jabatan, prinsiple, area, waktu check-in, update GPS terakhir (*diffForHumans*), alamat/toko, tombol langsung ke Google Maps dan tautan Riwayat Rute Tracking harian.
+        - **Sidebar Karyawan Interaktif**: Daftar seluruh karyawan terpetakan di samping peta; mengklik kartu karyawan langsung mengarahkan kamera peta (*flyTo*) ke titik presensi karyawan terkait dan membuka pop-up-nya.
+        - **Pilihan Layer Peta**: Tombol switch antara Peta Jalan (*OpenStreetMap*) dan Citra Satelit (*Esri World Imagery*), serta tombol Fullscreen dan Pusatkan Peta.
 
 ---
 

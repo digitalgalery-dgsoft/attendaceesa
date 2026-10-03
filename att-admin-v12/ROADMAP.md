@@ -2644,6 +2644,40 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
       - **4. Pemasangan Meta Tag Noindex di Seluruh Template View**:
         - Menambahkan `<meta name="robots" content="noindex, nofollow, noarchive, nosnippet">` pada Filament Admin Panel (via `PanelsRenderHook::HEAD_START` di `AdminPanelProvider.php`), Portal Layout, Tenant Login, Landing Page, dan Server Monitoring.
 
+- [x] **Milestone 68: Penghapusan Tampilan Harga & Perhitungan Penjualan Laporan Wings Surya (Event MBR & Regular) Transisi Murni Kuantiti/Qty** (Selesai 02 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Laporan penjualan PT Wings Surya (baik mode *Event MBR Sales* `RPT-WINGS-MBR-SALES-01` maupun *Regular Sales* `RPT-WINGS-REGULAR-SALES-01`) difokuskan murni pada pencatatan pergerakan fisik barang (volume/kuantiti).
+      - Bagian harga master produk distributor, input harga toko, dan kalkulasi subtotal/omset rupiah dihilangkan dari form pelaporan mobile serta dashboard analitik portal admin.
+    - **Solusi & Implementasi**:
+      - **1. Formulir Pelaporan Mobile (`att-mobile/lib/screens/dynamic_form_screen.dart`)**:
+        - Data master produk dan keranjang murni menampilkan Qty tanpa harga toko/distributor dan nilai rupiah.
+      - **2. Dashboard Portal Analitik Wings (`wings_mbr_dashboard.blade.php`)**:
+        - KPI cards dan tabel ranking menampilkan total kuantiti penjualan tanpa nominal omset rupiah.
+      - **3. Halaman Detail Rincian Submisi Portal (`report_submission_detail.blade.php`)**:
+        - Rincian item submisi murni kuantiti barang terjual.
+
+- [x] **Milestone 69: Halaman Live Map Monitoring Presensi Karyawan Khusus Administrator (Filter Area & Prinsiple, Marker Foto / Inisial)** (Selesai 03 Oktober 2026)
+    - **Latar Belakang & Kebutuhan**:
+      - Manajemen dan Administrator memerlukan visualisasi peta terpusat pada Dashboard Web Admin Filament untuk memantau titik koordinat karyawan lapangan yang sedang check-in secara real-time.
+      - Halaman dilindungi secara ketat **khusus role Administrator** (`isAdministrator`).
+      - Peta wajib dapat difilter secara fleksibel berdasarkan **Prinsiple** dan **Area / Cabang**, didukung opsi tipe titik (Live GPS vs Check-in Point) dan pencarian live nama/NIK karyawan.
+      - Setiap titik koordinat pada peta menampilkan **foto profil karyawan** dengan auto-fallback ke **inisial nama 2 huruf** berlatar palet warna dinamis jika belum memiliki foto.
+    - **Solusi & Implementasi**:
+      - **1. Halaman Filament Dedicated (`LiveAttendanceMap.php`)**:
+        - Dibuat pada `app/Filament/Pages/LiveAttendanceMap.php` di bawah grup navigasi *Attendance & Time Management* dengan icon `heroicon-o-globe-alt`.
+        - Dilengkapi proteksi akses ketat `canAccess()` (memeriksa `isAdministrator()`, `isSuperAdmin()`, role admin) serta `abort_unless(static::canAccess(), 403)`.
+        - Menggunakan kueri cerdas 2 batch (tanpa N+1 query) untuk mengambil seluruh sesi kehadiran aktif (`checkin_at IS NOT NULL` dan `checkout_at IS NULL` dalam rentang 24 jam) serta titik GPS live bergerak terbaru dari `tracking_histories` dengan fallback ke `attendance_logs` presensi masuk.
+        - Memvalidasi batas geografis Indonesia (`isValidCoordinate`) untuk mencegah titik koordinat 0,0 atau anomali.
+      - **2. Tampilan Peta Interaktif & Custom DivIcon Leaflet (`live-attendance-map.blade.php`)**:
+        - **Status Bar Real-Time**: Dilengkapi radar pulse hijau, jam live server WIB, dan switch auto-refresh (interval 30 detik).
+        - **4 Kartu Metrik KPI**: Total Sedang Check-in, GPS Live Tracking (Bergerak), Titik Check-in Saja, dan Cakupan Prinsiple & Area Lapangan.
+        - **Filter Lengkap**: Dropdown Prinsiple, Dropdown Area / Cabang, Pilihan Sumber Titik, dan Live Search Input dengan tombol reset.
+        - **Custom Marker Pin Avatar**: Pin berpresisi tinggi dengan border indikator status (Hijau untuk GPS Live Tracking, Biru untuk Titik Presensi Masuk). Menampilkan foto profil bulat atau 2 huruf inisial kapital dengan penanganan `onerror` mulus.
+        - **Marker Clustering (`leaflet.markercluster`)**: Mengelompokkan titik koordinat yang berdekatan dengan rapi, dan membesar (*spiderfy*) secara mulus saat di-zoom.
+        - **Popup Informatif**: Menampilkan foto/inisial, nama, NIK, jabatan, prinsiple, area, waktu check-in, update GPS terakhir (*diffForHumans*), alamat/toko, tombol langsung ke Google Maps dan tautan Riwayat Rute Tracking harian.
+        - **Sidebar Karyawan Interaktif**: Daftar seluruh karyawan terpetakan di samping peta; mengklik kartu karyawan langsung mengarahkan kamera peta (*flyTo*) ke titik presensi karyawan terkait dan membuka pop-up-nya.
+        - **Pilihan Layer Peta**: Tombol switch antara Peta Jalan (*OpenStreetMap*) dan Citra Satelit (*Esri World Imagery*), serta tombol Fullscreen dan Pusatkan Peta.
+
 ---
 
 ## 🚀 Rencana Fitur Mendatang (Future Implementation Plans)
