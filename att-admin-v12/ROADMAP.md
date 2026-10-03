@@ -2673,7 +2673,11 @@ Berdasarkan pengecekan ulang sistem pada 5 Agustus 2026 sesuai dengan panduan PP
         - **4 Kartu Metrik KPI**: Total Sedang Check-in, GPS Live Tracking (Bergerak), Titik Check-in Saja, dan Cakupan Prinsiple & Area Lapangan.
         - **Filter Lengkap**: Dropdown Prinsiple, Dropdown Area / Cabang, Pilihan Sumber Titik, dan Live Search Input dengan tombol reset.
         - **Marker Rendering Langsung & Autofocus Otomatis**: Titik marker dirender langsung menggunakan Leaflet `featureGroup` bawaan tanpa dependensi plugin eksternal, memastikan pin profil/inisial tampil 100% instan dan peta seketika memusatkan kamera (*autofocus & fitBounds*) ke wilayah penempatan karyawan yang sedang aktif check-in.
-        - **Searchable Dropdown Filter**: Mengintegrasikan dropdown pencarian instan (*searchable combobox*) untuk Filter Prinsiple dan Filter Area / Cabang dengan keyboard search, clear selection, dan highlight aktif.
+        - **Searchable Dropdown Filter (Berbasis Karyawan Check-in Aktif Saja)**:
+          - Dropdown **Prinsiple** dan **Area / Cabang** secara cerdas hanya menampilkan prinsiple dan area yang *saat ini* memiliki karyawan dalam posisi check-in (bukan seluruh master database).
+          - Dilengkapi indikator badge jumlah karyawan yang sedang aktif check-in pada masing-masing opsi (misal `PT KANSAI PRAKARSA COATINGS (12 check-in)`).
+          - Filter Area / Cabang terhubung reaktif terhadap pilihan Prinsiple: jika Prinsiple dipilih, daftar area otomatis tersaring hanya ke cabang yang memiliki karyawan check-in pada prinsiple tersebut.
+          - Komponen Alpine.js reaktif dengan `wire:key` dinamis, live search input, keyboard support, dan clear selection (✕).
         - **Popup Informatif**: Menampilkan foto/inisial, nama, NIK, jabatan, prinsiple, area, waktu check-in, update GPS terakhir (*diffForHumans*), alamat/toko, tombol langsung ke Google Maps dan tautan Riwayat Rute Tracking harian.
         - **Sidebar Karyawan Interaktif**: Daftar seluruh karyawan terpetakan di samping peta; mengklik kartu karyawan langsung mengarahkan kamera peta (*flyTo*) ke titik presensi karyawan terkait dan membuka pop-up-nya.
         - **Pilihan Layer Peta**: Tombol switch antara Peta Jalan (*OpenStreetMap*) dan Citra Satelit (*Esri World Imagery*), serta tombol Fullscreen dan Pusatkan Peta.

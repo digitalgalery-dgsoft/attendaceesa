@@ -76,6 +76,12 @@ class LiveAttendanceMap extends Page
 
     public function updatedSelectedPrincipalId(): void
     {
+        if (!empty($this->selectedBranchId)) {
+            $validBranchIds = collect($this->getActiveBranches())->pluck('id')->map(fn($id) => (string)$id)->toArray();
+            if (!in_array((string)$this->selectedBranchId, $validBranchIds)) {
+                $this->selectedBranchId = null;
+            }
+        }
         $this->memoizedData = null;
         $this->dispatchMapUpdate();
     }
@@ -467,13 +473,126 @@ class LiveAttendanceMap extends Page
         return ($lat >= -12.0 && $lat <= 7.0 && $lng >= 94.0 && $lng <= 142.0);
     }
 
+    /**
+     * Query dasar sesi kehadiran aktif (checkin_at IS NOT NULL dan checkout_at IS NULL).
+     */
+    protected function getActiveAttendanceBaseQuery()
+    {
+        $now = Carbon::now('Asia/Jakarta');
+        $todayStr = Carbon::today('Asia/Jakarta')->toDateString();
+
+        return DB::table('attendances')
+            ->join('employees', 'attendances.employee_id', '=', 'employees.id')
+            ->whereNull('attendances.checkout_at')
+            ->whereNotNull('attendances.checkin_at')
+            ->where(function ($q) use ($todayStr, $now) {
+                $q->where('attendances.attendance_date', $todayStr)
+                  ->orWhere('attendances.checkin_at', '>=', $now->copy()->subHours(24));
+            })
+            ->where('employees.is_active', true)
+            ->whereNull('employees.deleted_at')
+            ->where(function ($q) {
+                $q->whereNull('employees.employment_status')
+                  ->orWhere('employees.employment_status', '!=', 'resigned');
+            });
+    }
+
+    /**
+     * Mengambil daftar prinsiple yang SAAT INI memiliki karyawan dalam posisi check-in aktif saja.
+     */
+    public function getActivePrincipals(): array
+    {
+        $rows = $this->getActiveAttendanceBaseQuery()
+            ->join('principals', 'employees.principal_id', '=', 'principals.id')
+            ->select(
+                'principals.id',
+                'principals.name',
+                DB::raw('COUNT(DISTINCT employees.id) as employee_count')
+            )
+            ->groupBy('principals.id', 'principals.name')
+            ->orderBy('principals.name')
+            ->get();
+
+        return $rows->map(function ($row) {
+            return [
+                'id' => (string) $row->id,
+                'name' => $row->name,
+                'count' => (int) $row->employee_count,
+            ];
+        })->values()->toArray();
+    }
+
+    /**
+     * Mengambil daftar area / cabang yang SAAT INI memiliki karyawan dalam posisi check-in aktif saja.
+     * Jika filter prinsiple sedang dipilih, batasi hanya ke area yang memiliki karyawan check-in pada prinsiple tersebut.
+     */
+    public function getActiveBranches(): array
+    {
+        $baseQuery = $this->getActiveAttendanceBaseQuery();
+
+        if (!empty($this->selectedPrincipalId)) {
+            $baseQuery->where('employees.principal_id', $this->selectedPrincipalId);
+        }
+
+        // 1. Cabang dari tabel branches
+        $branchRows = (clone $baseQuery)
+            ->join('branches', 'employees.branch_id', '=', 'branches.id')
+            ->select(
+                'branches.id',
+                'branches.name',
+                DB::raw('COUNT(DISTINCT employees.id) as employee_count')
+            )
+            ->groupBy('branches.id', 'branches.name')
+            ->get();
+
+        $items = [];
+        $seenNames = [];
+
+        foreach ($branchRows as $row) {
+            $items[] = [
+                'id' => (string) $row->id,
+                'name' => $row->name,
+                'count' => (int) $row->employee_count,
+            ];
+            $seenNames[] = strtolower(trim($row->name));
+        }
+
+        // 2. Area dari tabel areas untuk karyawan yang memiliki area_id (dan belum tercakup di branches)
+        $areaRows = (clone $baseQuery)
+            ->whereNull('employees.branch_id')
+            ->join('areas', 'employees.area_id', '=', 'areas.id')
+            ->select(
+                'areas.id',
+                'areas.name',
+                DB::raw('COUNT(DISTINCT employees.id) as employee_count')
+            )
+            ->groupBy('areas.id', 'areas.name')
+            ->get();
+
+        foreach ($areaRows as $row) {
+            $nameNorm = strtolower(trim($row->name));
+            if (!in_array($nameNorm, $seenNames)) {
+                $items[] = [
+                    'id' => (string) $row->id,
+                    'name' => $row->name,
+                    'count' => (int) $row->employee_count,
+                ];
+                $seenNames[] = $nameNorm;
+            }
+        }
+
+        usort($items, fn($a, $b) => strcasecmp($a['name'], $b['name']));
+
+        return $items;
+    }
+
     protected function getViewData(): array
     {
         $mapData = $this->getMapData();
 
         return [
-            'allPrincipals' => Principal::where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'allBranches' => Branch::orderBy('name')->get(['id', 'name']),
+            'allPrincipals' => $this->getActivePrincipals(),
+            'allBranches' => $this->getActiveBranches(),
             'employees' => $mapData['employees'],
             'unmapped' => $mapData['unmapped'],
             'summary' => $mapData['summary'],

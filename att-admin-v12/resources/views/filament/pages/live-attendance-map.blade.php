@@ -4,8 +4,8 @@
     $employees = $mapData['employees'] ?? [];
     $summary = $mapData['summary'] ?? [];
     $unmapped = $mapData['unmapped'] ?? [];
-    $allPrincipals = $allPrincipals ?? \App\Models\Principal::where('is_active', true)->orderBy('name')->get(['id', 'name']);
-    $allBranches = $allBranches ?? \App\Models\Branch::orderBy('name')->get(['id', 'name']);
+    $allPrincipals = $this->getActivePrincipals();
+    $allBranches = $this->getActiveBranches();
 @endphp
 
     {{-- Leaflet Core CSS --}}
@@ -713,15 +713,16 @@
         <div class="filter-panel">
             <div class="filter-grid">
                 
-                {{-- 1. Searchable Filter Prinsiple --}}
+                {{-- 1. Searchable Filter Prinsiple (Hanya yang sedang memiliki karyawan check-in) --}}
                 <div 
+                    wire:key="filter-principal-container-{{ count($allPrincipals) }}"
                     x-data="{
                         open: false,
                         search: '',
                         selectedId: @entangle('selectedPrincipalId').live,
                         options: @js($allPrincipals),
                         get selectedLabel() {
-                            if (!this.selectedId) return '-- Semua Prinsiple --';
+                            if (!this.selectedId) return '-- Semua Prinsiple ({{ count($allPrincipals) }} Aktif) --';
                             const found = this.options.find(o => String(o.id) === String(this.selectedId));
                             return found ? found.name : '-- Semua Prinsiple --';
                         },
@@ -744,8 +745,9 @@
                     class="searchable-select-container"
                     @click.outside="open = false"
                 >
-                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
-                        🏢 Filter Prinsiple (Searchable)
+                    <label style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
+                        <span>🏢 Filter Prinsiple</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #0284c7; background: #e0f2fe; padding: 1px 8px; border-radius: 999px;">{{ count($allPrincipals) }} Aktif</span>
                     </label>
 
                     <button 
@@ -773,7 +775,7 @@
                                 x-model="search"
                                 type="text" 
                                 class="searchable-select-input"
-                                placeholder="Cari nama prinsiple..." 
+                                placeholder="Cari nama prinsiple aktif..." 
                                 @keydown.escape="open = false"
                             />
                         </div>
@@ -784,7 +786,7 @@
                                 class="searchable-select-option"
                                 :class="{'is-selected': !selectedId}"
                             >
-                                <span>-- Semua Prinsiple --</span>
+                                <span>-- Semua Prinsiple ({{ count($allPrincipals) }} Aktif) --</span>
                                 <span x-show="!selectedId">✓</span>
                             </div>
 
@@ -794,8 +796,13 @@
                                     class="searchable-select-option"
                                     :class="{'is-selected': String(selectedId) === String(opt.id)}"
                                 >
-                                    <span x-text="opt.name"></span>
-                                    <span x-show="String(selectedId) === String(opt.id)">✓</span>
+                                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px;">
+                                        <span x-text="opt.name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                            <span style="background: #e0f2fe; color: #0284c7; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;" x-text="opt.count + ' check-in'"></span>
+                                            <span x-show="String(selectedId) === String(opt.id)">✓</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
 
@@ -806,15 +813,16 @@
                     </div>
                 </div>
 
-                {{-- 2. Searchable Filter Area / Cabang --}}
+                {{-- 2. Searchable Filter Area / Cabang (Hanya yang sedang memiliki karyawan check-in) --}}
                 <div 
+                    wire:key="filter-branch-container-{{ $selectedPrincipalId ?? 'all' }}-{{ count($allBranches) }}"
                     x-data="{
                         open: false,
                         search: '',
                         selectedId: @entangle('selectedBranchId').live,
                         options: @js($allBranches),
                         get selectedLabel() {
-                            if (!this.selectedId) return '-- Semua Area / Cabang --';
+                            if (!this.selectedId) return '-- Semua Area / Cabang ({{ count($allBranches) }} Aktif) --';
                             const found = this.options.find(o => String(o.id) === String(this.selectedId));
                             return found ? found.name : '-- Semua Area / Cabang --';
                         },
@@ -837,8 +845,9 @@
                     class="searchable-select-container"
                     @click.outside="open = false"
                 >
-                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
-                        📍 Filter Area / Cabang (Searchable)
+                    <label style="display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 6px; color: #334155;" class="dark:text-slate-300">
+                        <span>📍 Filter Area / Cabang</span>
+                        <span style="font-size: 11px; font-weight: 600; color: #7c3aed; background: #f5f3ff; padding: 1px 8px; border-radius: 999px;">{{ count($allBranches) }} Aktif</span>
                     </label>
 
                     <button 
@@ -866,7 +875,7 @@
                                 x-model="search"
                                 type="text" 
                                 class="searchable-select-input"
-                                placeholder="Cari nama area / cabang..." 
+                                placeholder="Cari nama area / cabang aktif..." 
                                 @keydown.escape="open = false"
                             />
                         </div>
@@ -877,7 +886,7 @@
                                 class="searchable-select-option"
                                 :class="{'is-selected': !selectedId}"
                             >
-                                <span>-- Semua Area / Cabang --</span>
+                                <span>-- Semua Area / Cabang ({{ count($allBranches) }} Aktif) --</span>
                                 <span x-show="!selectedId">✓</span>
                             </div>
 
@@ -887,8 +896,13 @@
                                     class="searchable-select-option"
                                     :class="{'is-selected': String(selectedId) === String(opt.id)}"
                                 >
-                                    <span x-text="opt.name"></span>
-                                    <span x-show="String(selectedId) === String(opt.id)">✓</span>
+                                    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 8px;">
+                                        <span x-text="opt.name" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+                                        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                                            <span style="background: #f1f5f9; color: #475569; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;" x-text="opt.count + ' check-in'"></span>
+                                            <span x-show="String(selectedId) === String(opt.id)">✓</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </template>
 
