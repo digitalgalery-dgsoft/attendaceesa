@@ -580,6 +580,27 @@
             width: 310px !important;
             line-height: 1.4 !important;
         }
+        .leaflet-popup-close-button {
+            color: #ffffff !important;
+            top: 10px !important;
+            right: 12px !important;
+            font-size: 20px !important;
+            font-weight: 800 !important;
+            z-index: 1000 !important;
+            width: 26px !important;
+            height: 26px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            border-radius: 50% !important;
+            background: rgba(0, 0, 0, 0.3) !important;
+            text-decoration: none !important;
+            transition: background 0.15s ease !important;
+        }
+        .leaflet-popup-close-button:hover {
+            background: rgba(0, 0, 0, 0.6) !important;
+            color: #ffffff !important;
+        }
         .popup-header {
             padding: 16px;
             color: #ffffff;
@@ -1121,7 +1142,18 @@
                 map = L.map('live-map-container', {
                     center: [-7.5, 112.5],
                     zoom: 8,
-                    layers: [streetLayer]
+                    layers: [streetLayer],
+                    closePopupOnClick: false
+                });
+
+                // Menutup popup hanya jika user secara eksplisit mengklik area kanvas peta kosong
+                map.on('click', function (e) {
+                    if (e && e.originalEvent && e.originalEvent.target) {
+                        if (e.originalEvent.target.closest('.leaflet-marker-icon, .leaflet-popup, .emp-map-pin')) {
+                            return;
+                        }
+                    }
+                    map.closePopup();
                 });
 
                 // Layer group langsung bawaan Leaflet Core (100% reliable)
@@ -1273,12 +1305,48 @@
 
                 // Popup Template
                 const popupContent = createPopupHtml(emp);
-                marker.bindPopup(popupContent, { maxWidth: 320, offset: [0, -30] });
+                marker.bindPopup(popupContent, { 
+                    maxWidth: 320, 
+                    offset: [0, -30],
+                    closeOnClick: false,
+                    autoClose: true,
+                    closeButton: true,
+                    autoPan: true,
+                    autoPanPadding: [20, 20]
+                });
 
                 // Tooltip on hover
                 marker.bindTooltip(`<strong>${emp.name}</strong><br><span style="font-size:11px;color:#64748b;">${emp.principal} • ${emp.branch}</span>`, {
                     direction: 'top',
-                    offset: [0, -45]
+                    offset: [0, -45],
+                    interactive: false
+                });
+
+                // Cegah event bubbling dari klik marker ke kanvas peta
+                marker.on('click', function (e) {
+                    if (e && e.originalEvent) {
+                        L.DomEvent.stopPropagation(e.originalEvent);
+                    }
+                    marker.closeTooltip();
+                    marker.openPopup();
+                });
+
+                marker.on('popupopen', function () {
+                    marker.closeTooltip();
+                });
+
+                marker.on('mouseover', function () {
+                    if (marker.isPopupOpen()) {
+                        marker.closeTooltip();
+                    }
+                });
+
+                // Matikan propagasi klik pada elemen DOM icon marker
+                marker.on('add', function () {
+                    const el = marker.getElement();
+                    if (el) {
+                        L.DomEvent.disableClickPropagation(el);
+                    }
                 });
 
                 markersGroup.addLayer(marker);
@@ -1440,7 +1508,10 @@
         window.focusEmployeeOnMap = function(empId) {
             const marker = markersMap[empId];
             if (marker && map) {
-                map.flyTo(marker.getLatLng(), 17, { duration: 1.2 });
+                map.flyTo(marker.getLatLng(), 17, { duration: 0.8 });
+                map.once('moveend', function () {
+                    marker.openPopup();
+                });
                 marker.openPopup();
             }
         };
