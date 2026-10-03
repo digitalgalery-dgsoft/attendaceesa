@@ -1084,7 +1084,19 @@
         let map = null;
         let markersGroup = null;
         let markersMap = {};
+        let activeMarkerPopup = null;
         window.liveAttendanceData = @json($employees);
+
+        window.closeActivePopup = function (empId) {
+            if (empId && markersMap[empId]) {
+                markersMap[empId].closePopup();
+            } else if (activeMarkerPopup) {
+                activeMarkerPopup.closePopup();
+            } else if (map) {
+                map.closePopup();
+            }
+            activeMarkerPopup = null;
+        };
 
         let streetLayer = null;
         let satelliteLayer = null;
@@ -1138,22 +1150,13 @@
                     attribution: '&copy; Esri World Imagery'
                 });
 
-                // Inisialisasi peta Leaflet
+                // Inisialisasi peta Leaflet (closePopupOnClick: false & tap: false agar tidak tertutup otomatis)
                 map = L.map('live-map-container', {
                     center: [-7.5, 112.5],
                     zoom: 8,
                     layers: [streetLayer],
-                    closePopupOnClick: false
-                });
-
-                // Menutup popup hanya jika user secara eksplisit mengklik area kanvas peta kosong
-                map.on('click', function (e) {
-                    if (e && e.originalEvent && e.originalEvent.target) {
-                        if (e.originalEvent.target.closest('.leaflet-marker-icon, .leaflet-popup, .emp-map-pin')) {
-                            return;
-                        }
-                    }
-                    map.closePopup();
+                    closePopupOnClick: false,
+                    tap: false
                 });
 
                 // Layer group langsung bawaan Leaflet Core (100% reliable)
@@ -1299,45 +1302,38 @@
                 const markerIcon = createEmployeePinIcon(emp);
                 const marker = L.marker([lat, lng], { 
                     icon: markerIcon,
-                    title: emp.name,
+                    title: `${emp.name} (${emp.principal} • ${emp.branch})`,
                     riseOnHover: true
                 });
 
-                // Popup Template
+                // Popup Template (Persistent: hanya ditutup secara manual oleh user)
                 const popupContent = createPopupHtml(emp);
                 marker.bindPopup(popupContent, { 
                     maxWidth: 320, 
                     offset: [0, -30],
-                    closeOnClick: false,
-                    autoClose: true,
-                    closeButton: true,
+                    closeOnClick: false,     // Jangan tutup saat klik di kanvas peta
+                    autoClose: false,        // Jangan tutup otomatis
+                    closeButton: true,       // Tombol silang 'X' di kanan atas
+                    closeOnEscapeKey: true,  // Tombol ESC pada keyboard untuk menutup
                     autoPan: true,
-                    autoPanPadding: [20, 20]
+                    autoPanPadding: [25, 25]
                 });
 
-                // Tooltip on hover
-                marker.bindTooltip(`<strong>${emp.name}</strong><br><span style="font-size:11px;color:#64748b;">${emp.principal} • ${emp.branch}</span>`, {
-                    direction: 'top',
-                    offset: [0, -45],
-                    interactive: false
-                });
-
-                // Cegah event bubbling dari klik marker ke kanvas peta
+                // Tangani klik marker: tutup popup sebelumnya jika ada, lalu buka popup marker ini
                 marker.on('click', function (e) {
                     if (e && e.originalEvent) {
                         L.DomEvent.stopPropagation(e.originalEvent);
                     }
-                    marker.closeTooltip();
+                    if (activeMarkerPopup && activeMarkerPopup !== marker) {
+                        activeMarkerPopup.closePopup();
+                    }
+                    activeMarkerPopup = marker;
                     marker.openPopup();
                 });
 
-                marker.on('popupopen', function () {
-                    marker.closeTooltip();
-                });
-
-                marker.on('mouseover', function () {
-                    if (marker.isPopupOpen()) {
-                        marker.closeTooltip();
+                marker.on('popupclose', function () {
+                    if (activeMarkerPopup === marker) {
+                        activeMarkerPopup = null;
                     }
                 });
 
@@ -1497,6 +1493,16 @@
                         >
                             Riwayat Rute ↗
                         </a>
+                        <button 
+                            type="button"
+                            onclick="window.closeActivePopup(${emp.id})"
+                            style="padding: 7px 12px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.15s ease;"
+                            onmouseover="this.style.background='#fecaca'"
+                            onmouseout="this.style.background='#fee2e2'"
+                            title="Tutup pop-up detail secara manual"
+                        >
+                            ✕ Tutup
+                        </button>
                     </div>
                 </div>
             `;
@@ -1508,6 +1514,10 @@
         window.focusEmployeeOnMap = function(empId) {
             const marker = markersMap[empId];
             if (marker && map) {
+                if (activeMarkerPopup && activeMarkerPopup !== marker) {
+                    activeMarkerPopup.closePopup();
+                }
+                activeMarkerPopup = marker;
                 map.flyTo(marker.getLatLng(), 17, { duration: 0.8 });
                 map.once('moveend', function () {
                     marker.openPopup();
