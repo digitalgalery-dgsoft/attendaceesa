@@ -567,63 +567,151 @@
             border-radius: 50%;
         }
 
-        /* ─── Leaflet Popup Custom Styling ─── */
-        .leaflet-popup-content-wrapper {
-            padding: 0 !important;
-            border-radius: 16px !important;
-            overflow: hidden !important;
-            box-shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.25) !important;
-            border: 1px solid rgba(226, 232, 240, 0.8) !important;
+        /* ─── Marker & Sidebar Selected Highlight ─── */
+        .emp-map-pin.is-active-selected {
+            transform: scale(1.28) translateY(-8px) !important;
+            z-index: 999999 !important;
         }
-        .leaflet-popup-content {
-            margin: 0 !important;
-            width: 310px !important;
-            line-height: 1.4 !important;
+        .emp-map-pin.is-active-selected .emp-pin-disc {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 4px #ffffff, 0 0 0 8px #f59e0b, 0 16px 32px rgba(245, 158, 11, 0.6) !important;
+            animation: activePinPulse 1.6s infinite alternate ease-in-out;
         }
-        .leaflet-popup-close-button {
-            color: #ffffff !important;
-            top: 10px !important;
-            right: 12px !important;
-            font-size: 20px !important;
-            font-weight: 800 !important;
-            z-index: 1000 !important;
-            width: 26px !important;
-            height: 26px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            border-radius: 50% !important;
-            background: rgba(0, 0, 0, 0.3) !important;
-            text-decoration: none !important;
-            transition: background 0.15s ease !important;
+        @keyframes activePinPulse {
+            0% { box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px #f59e0b, 0 10px 24px rgba(245, 158, 11, 0.5); }
+            100% { box-shadow: 0 0 0 5px #ffffff, 0 0 0 12px #f59e0b, 0 18px 36px rgba(245, 158, 11, 0.8); }
         }
-        .leaflet-popup-close-button:hover {
-            background: rgba(0, 0, 0, 0.6) !important;
-            color: #ffffff !important;
+
+        .emp-list-item.is-selected {
+            border-color: #2563eb !important;
+            background: #eff6ff !important;
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+            transform: translateX(4px);
         }
-        .popup-header {
-            padding: 16px;
+        .dark .emp-list-item.is-selected {
+            background: #1e3a8a4d !important;
+            border-color: #60a5fa !important;
+        }
+
+        /* ─── Floating Persistent Employee Detail Panel (Cara Lain 100% Persisten) ─── */
+        .emp-floating-detail-panel {
+            position: absolute;
+            top: 16px;
+            left: 56px;
+            width: 370px;
+            max-width: calc(100% - 72px);
+            max-height: calc(100% - 32px);
+            background: #ffffff;
+            border-radius: 18px;
+            overflow-y: auto;
+            box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e2e8f0;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            animation: slideInDetailCard 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            scrollbar-width: thin;
+        }
+        .dark .emp-floating-detail-panel {
+            background: #0f172a;
+            border-color: #334155;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1);
+            color: #f8fafc;
+        }
+        @keyframes slideInDetailCard {
+            from {
+                opacity: 0;
+                transform: translateY(-14px) scale(0.96);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .map-fullscreen-active .emp-floating-detail-panel {
+            position: fixed !important;
+            top: 20px !important;
+            left: 20px !important;
+            z-index: 1000001 !important;
+        }
+        .map-fullscreen-active .map-floating-toolbar {
+            position: fixed !important;
+            top: 20px !important;
+            right: 20px !important;
+            z-index: 1000002 !important;
+        }
+
+        @media (max-width: 640px) {
+            .emp-floating-detail-panel {
+                top: auto;
+                bottom: 12px;
+                left: 12px;
+                right: 12px;
+                width: auto;
+                max-width: none;
+                max-height: 80vh;
+            }
+        }
+
+        .panel-header-live {
+            background: linear-gradient(135deg, #065f46 0%, #047857 100%);
             color: #ffffff;
+            padding: 16px 18px;
             position: relative;
         }
-        .popup-header.live-bg {
-            background: linear-gradient(135deg, #065f46 0%, #047857 100%);
-        }
-        .popup-header.checkin-bg {
+        .panel-header-checkin {
             background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+            color: #ffffff;
+            padding: 16px 18px;
+            position: relative;
         }
-        .popup-body {
-            padding: 16px;
+
+        .panel-close-btn {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 800;
+            transition: all 0.15s ease;
+        }
+        .panel-close-btn:hover {
+            background: rgba(239, 68, 68, 0.9);
+            transform: scale(1.1);
+        }
+
+        .panel-body-content {
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
             background: #ffffff;
-            color: #1e293b;
-            font-size: 12px;
         }
-        .popup-actions {
-            padding: 12px 16px;
+        .dark .panel-body-content {
+            background: #0f172a;
+        }
+
+        .panel-action-bar {
+            padding: 12px 18px;
             background: #f8fafc;
             border-top: 1px solid #e2e8f0;
             display: flex;
+            align-items: center;
             gap: 8px;
+        }
+        .dark .panel-action-bar {
+            background: #1e293b;
+            border-color: #334155;
         }
     </style>
 
@@ -999,6 +1087,9 @@
 
                 {{-- Leaflet Map Canvas (wire:ignore to prevent Livewire DOM morph reloads) --}}
                 <div id="live-map-container" wire:ignore></div>
+
+                {{-- Floating Persistent Employee Detail Panel (Cara Lain yang 100% Persisten & Murni Ditutup Manual) --}}
+                <div id="emp-floating-detail-panel" class="emp-floating-detail-panel" style="display: none;" wire:ignore></div>
             </div>
 
             {{-- Sidebar List Karyawan --}}
@@ -1084,19 +1175,9 @@
         let map = null;
         let markersGroup = null;
         let markersMap = {};
-        let activeMarkerPopup = null;
+        window.currentSelectedEmpId = null;
         window.liveAttendanceData = @json($employees);
-
-        window.closeActivePopup = function (empId) {
-            if (empId && markersMap[empId]) {
-                markersMap[empId].closePopup();
-            } else if (activeMarkerPopup) {
-                activeMarkerPopup.closePopup();
-            } else if (map) {
-                map.closePopup();
-            }
-            activeMarkerPopup = null;
-        };
+        window.liveAttendanceDataMap = {};
 
         let streetLayer = null;
         let satelliteLayer = null;
@@ -1283,15 +1364,19 @@
             }
 
             markersMap = {};
+            window.liveAttendanceDataMap = {};
 
             if (!employees || employees.length === 0) {
                 map.setView([-7.2575, 112.7521], 8);
+                window.closeEmployeeDetail();
                 return;
             }
 
             const latlngs = [];
 
             employees.forEach(function (emp) {
+                window.liveAttendanceDataMap[emp.id] = emp;
+
                 if (!emp.lat || !emp.lng) return;
 
                 const lat = parseFloat(emp.lat);
@@ -1306,35 +1391,12 @@
                     riseOnHover: true
                 });
 
-                // Popup Template (Persistent: hanya ditutup secara manual oleh user)
-                const popupContent = createPopupHtml(emp);
-                marker.bindPopup(popupContent, { 
-                    maxWidth: 320, 
-                    offset: [0, -30],
-                    closeOnClick: false,     // Jangan tutup saat klik di kanvas peta
-                    autoClose: false,        // Jangan tutup otomatis
-                    closeButton: true,       // Tombol silang 'X' di kanan atas
-                    closeOnEscapeKey: true,  // Tombol ESC pada keyboard untuk menutup
-                    autoPan: true,
-                    autoPanPadding: [25, 25]
-                });
-
-                // Tangani klik marker: tutup popup sebelumnya jika ada, lalu buka popup marker ini
+                // Klik Marker: Tampilkan Floating Detail Panel (Bukan Leaflet popup bawaan)
                 marker.on('click', function (e) {
                     if (e && e.originalEvent) {
                         L.DomEvent.stopPropagation(e.originalEvent);
                     }
-                    if (activeMarkerPopup && activeMarkerPopup !== marker) {
-                        activeMarkerPopup.closePopup();
-                    }
-                    activeMarkerPopup = marker;
-                    marker.openPopup();
-                });
-
-                marker.on('popupclose', function () {
-                    if (activeMarkerPopup === marker) {
-                        activeMarkerPopup = null;
-                    }
+                    window.showEmployeeDetail(emp.id, false);
                 });
 
                 // Matikan propagasi klik pada elemen DOM icon marker
@@ -1350,8 +1412,11 @@
                 latlngs.push([lat, lng]);
             });
 
-            // FOKUSKAN PETA LANGSUNG KE SELURUH KARYAWAN YANG SEDANG CHECK-IN
-            if (latlngs.length === 1) {
+            // Jika sebelumnya ada karyawan yang sedang dilihat detailnya, pertahankan tampilan
+            if (window.currentSelectedEmpId && window.liveAttendanceDataMap[window.currentSelectedEmpId]) {
+                window.showEmployeeDetail(window.currentSelectedEmpId, false);
+            } else if (latlngs.length === 1) {
+                // FOKUSKAN PETA LANGSUNG KE SELURUH KARYAWAN YANG SEDANG CHECK-IN
                 map.setView(latlngs[0], 16);
             } else if (latlngs.length > 1) {
                 map.invalidateSize();
@@ -1395,8 +1460,10 @@
                 ? `<span class="emp-live-pulse" title="GPS Live Tracking Aktif"></span>`
                 : `<span class="emp-checkin-badge" title="Titik Presensi Check-in"></span>`;
 
+            const isCurrentlySelected = window.currentSelectedEmpId && String(window.currentSelectedEmpId) === String(emp.id);
+
             const iconHtml = `
-                <div class="emp-map-pin ${isLive ? 'is-live-tracking' : ''}" data-emp-id="${emp.id}">
+                <div class="emp-map-pin ${isLive ? 'is-live-tracking' : ''} ${isCurrentlySelected ? 'is-active-selected' : ''}" data-emp-id="${emp.id}">
                     <div class="emp-pin-disc" style="border-color: ${borderColor};">
                         ${avatarContent}
                         ${badgeHtml}
@@ -1416,94 +1483,206 @@
         }
 
         /**
-         * Membuat isi popup detail karyawan
+         * Menampilkan Floating Detail Panel untuk karyawan yang dipilih (100% Persisten & Murni Ditutup Manual)
+         * @param {number|string} empId
+         * @param {boolean} shouldPan - apakah kamera peta perlu digeser ke titik karyawan
          */
-        function createPopupHtml(emp) {
-            const isLive = emp.source === 'live_tracking';
-            const headerClass = isLive ? 'live-bg' : 'checkin-bg';
-            const sourceBadge = isLive 
-                ? `<span style="background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;">● GPS LIVE TRACKING</span>`
-                : `<span style="background: rgba(255,255,255,0.25); padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700;">📌 TITIK CHECK-IN</span>`;
+        window.showEmployeeDetail = function(empId, shouldPan = true) {
+            const emp = window.liveAttendanceDataMap ? window.liveAttendanceDataMap[empId] : null;
+            if (!emp) return;
 
-            const photoHtml = emp.photo_url
-                ? `<img src="${emp.photo_url}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;border:2px solid #ffffff;" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:48px;height:48px;border-radius:50%;background:${emp.avatar_color};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;border:2px solid #ffffff;\\'>${emp.initials}</div>';" />`
-                : `<div style="width:48px;height:48px;border-radius:50%;background:${emp.avatar_color};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;border:2px solid #ffffff;">${emp.initials}</div>`;
+            window.currentSelectedEmpId = empId;
+
+            // 1. Highlight pin marker di peta
+            document.querySelectorAll('.emp-map-pin').forEach(function(el) {
+                el.classList.remove('is-active-selected');
+            });
+            const activePinEl = document.querySelector(`.emp-map-pin[data-emp-id="${empId}"]`);
+            if (activePinEl) {
+                activePinEl.classList.add('is-active-selected');
+            }
+
+            // 2. Highlight item di sidebar
+            document.querySelectorAll('.emp-list-item').forEach(function(el) {
+                el.classList.remove('is-selected');
+            });
+            const activeSideItem = document.querySelector(`.emp-list-item[data-emp-id="${empId}"]`);
+            if (activeSideItem) {
+                activeSideItem.classList.add('is-selected');
+                activeSideItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+
+            // 3. Pusatkan kamera peta jika diminta
+            if (shouldPan && map && emp.lat && emp.lng) {
+                const lat = parseFloat(emp.lat);
+                const lng = parseFloat(emp.lng);
+                if (!isNaN(lat) && !isNaN(lng)) {
+                    map.panTo([lat, lng], { animate: true, duration: 0.5 });
+                }
+            }
+
+            // 4. Render isi HTML Floating Detail Panel
+            const panel = document.getElementById('emp-floating-detail-panel');
+            if (panel) {
+                panel.innerHTML = renderFloatingDetailHtml(emp);
+                panel.style.display = 'flex';
+            }
+        };
+
+        /**
+         * Menutup Floating Detail Panel secara manual
+         */
+        window.closeEmployeeDetail = function() {
+            window.currentSelectedEmpId = null;
+
+            const panel = document.getElementById('emp-floating-detail-panel');
+            if (panel) {
+                panel.style.display = 'none';
+                panel.innerHTML = '';
+            }
+
+            document.querySelectorAll('.emp-map-pin').forEach(function(el) {
+                el.classList.remove('is-active-selected');
+            });
+            document.querySelectorAll('.emp-list-item').forEach(function(el) {
+                el.classList.remove('is-selected');
+            });
+        };
+
+        // Alias pengaman untuk kompatibilitas
+        window.closeActivePopup = window.closeEmployeeDetail;
+
+        /**
+         * Render HTML isi dari Floating Detail Panel
+         */
+        function renderFloatingDetailHtml(emp) {
+            const isLive = emp.source === 'live_tracking';
+            const headerClass = isLive ? 'panel-header-live' : 'panel-header-checkin';
+            const sourceBadgeText = isLive ? '● LIVE GPS TRACKING' : '📌 TITIK CHECK-IN';
+            const sourceBadgeBg = isLive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(59, 130, 246, 0.3)';
+
+            const photoHtml = (emp.photo_url && emp.photo_url.trim() !== '')
+                ? `<img src="${emp.photo_url}" style="width: 52px; height: 52px; border-radius: 50%; object-fit: cover; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.25); flex-shrink: 0;" onerror="this.onerror=null; this.parentElement.innerHTML='<div style=\\'width:52px;height:52px;border-radius:50%;background:${emp.avatar_color};color:#ffffff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;border:2.5px solid #ffffff;box-shadow:0 4px 10px rgba(0,0,0,0.25);flex-shrink:0;\\'>${emp.initials}</div>';" />`
+                : `<div style="width: 52px; height: 52px; border-radius: 50%; background: ${emp.avatar_color}; color: #ffffff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; border: 2.5px solid #ffffff; box-shadow: 0 4px 10px rgba(0,0,0,0.25); flex-shrink: 0;">${emp.initials}</div>`;
+
+            const latNum = Number(emp.lat).toFixed(6);
+            const lngNum = Number(emp.lng).toFixed(6);
 
             return `
-                <div style="font-family: inherit;">
-                    <div class="popup-header ${headerClass}">
-                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                            ${sourceBadge}
-                            <span style="font-size: 11px; opacity: 0.9;">${emp.last_update_diff}</span>
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 12px;">
-                            ${photoHtml}
-                            <div style="min-width: 0; flex: 1;">
-                                <div style="font-weight: 800; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${emp.name}</div>
-                                <div style="font-size: 11px; opacity: 0.9;">NIK: ${emp.employee_no}</div>
-                                <div style="font-size: 11px; font-weight: 600; opacity: 0.95;">${emp.position}</div>
+                <div class="${headerClass}">
+                    <button 
+                        type="button" 
+                        class="panel-close-btn" 
+                        onclick="window.closeEmployeeDetail()" 
+                        title="Tutup Kartu Info (Esc)"
+                    >
+                        ✕
+                    </button>
+
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding-right: 36px;">
+                        <span style="background: ${sourceBadgeBg}; border: 1px solid rgba(255,255,255,0.35); padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 800; letter-spacing: 0.04em;">
+                            ${sourceBadgeText}
+                        </span>
+                        <span style="font-size: 11px; opacity: 0.9; font-weight: 600;">
+                            ${emp.last_update_diff}
+                        </span>
+                    </div>
+
+                    <div style="display: flex; align-items: center; gap: 14px;">
+                        ${photoHtml}
+                        <div style="min-width: 0; flex: 1;">
+                            <div style="font-weight: 800; font-size: 15px; line-height: 1.3; color: #ffffff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${emp.name}">
+                                ${emp.name}
+                            </div>
+                            <div style="font-size: 11px; opacity: 0.85; margin-top: 1px;">
+                                NIK: <strong>${emp.employee_no}</strong>
+                            </div>
+                            <div style="font-size: 11px; font-weight: 600; opacity: 0.95; margin-top: 2px;">
+                                ${emp.position}
                             </div>
                         </div>
                     </div>
-                    <div class="popup-body">
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; background: #f8fafc; padding: 10px; border-radius: 8px;">
-                            <div>
-                                <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Prinsiple</div>
-                                <div style="font-size: 12px; font-weight: 700; color: #0f172a;">${emp.principal}</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Area / Cabang</div>
-                                <div style="font-size: 12px; font-weight: 700; color: #0f172a;">${emp.branch}</div>
+                </div>
+
+                <div class="panel-body-content">
+                    {{-- Prinsiple & Area Badges --}}
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px;" class="dark:bg-slate-800 dark:border-slate-700">
+                            <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Prinsiple</div>
+                            <div style="font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px;" class="dark:text-white">${emp.principal}</div>
+                        </div>
+                        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px;" class="dark:bg-slate-800 dark:border-slate-700">
+                            <div style="font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase;">Area / Cabang</div>
+                            <div style="font-size: 12px; font-weight: 800; color: #0f172a; margin-top: 2px;" class="dark:text-white">${emp.branch}</div>
+                        </div>
+                    </div>
+
+                    {{-- Data Waktu & Lokasi --}}
+                    <div style="display: flex; flex-direction: column; gap: 8px; font-size: 12px; background: #ffffff; border: 1px solid #f1f5f9; border-radius: 12px; padding: 12px;" class="dark:bg-slate-800/60 dark:border-slate-700">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #64748b; font-size: 11px;">🕒 Jam Check-in:</span>
+                            <strong style="color: #0f172a; font-size: 12px;" class="dark:text-white">${emp.checkin_time}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="color: #64748b; font-size: 11px;">⏱️ Waktu Koordinat:</span>
+                            <strong style="color: #0f172a; font-size: 12px;" class="dark:text-white">${emp.last_update}</strong>
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                            <span style="color: #64748b; font-size: 11px;">📍 Titik GPS:</span>
+                            <div style="display: flex; align-items: center; gap: 6px;">
+                                <span style="font-family: monospace; font-size: 11px; color: #334155; font-weight: 700;" class="dark:text-slate-300">
+                                    ${latNum}, ${lngNum}
+                                </span>
+                                <button 
+                                    type="button" 
+                                    onclick="window.copyCoordinates('${emp.lat}', '${emp.lng}', this)"
+                                    style="padding: 2px 7px; font-size: 10px; font-weight: 700; background: #e2e8f0; color: #334155; border: none; border-radius: 6px; cursor: pointer; transition: all 0.15s ease;"
+                                    title="Salin Koordinat GPS"
+                                >
+                                    📋 Salin
+                                </button>
                             </div>
                         </div>
 
-                        <div style="display: flex; flex-direction: column; gap: 6px; font-size: 11px;">
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #64748b;">🕒 Jam Check-in:</span>
-                                <strong style="color: #0f172a;">${emp.checkin_time}</strong>
+                        ${emp.location_name && emp.location_name !== '-' ? `
+                            <div style="margin-top: 4px; padding-top: 8px; border-top: 1px dashed #e2e8f0;" class="dark:border-slate-700">
+                                <span style="color: #64748b; font-size: 10px; font-weight: 700; text-transform: uppercase; display: block;">Lokasi / Alamat Toko:</span>
+                                <span style="color: #1e293b; font-size: 12px; font-weight: 600; line-height: 1.4; display: block; margin-top: 2px;" class="dark:text-slate-200">
+                                    ${emp.location_name}
+                                </span>
                             </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #64748b;">⏱️ Waktu Koordinat:</span>
-                                <strong style="color: #0f172a;">${emp.last_update}</strong>
-                            </div>
-                            <div style="display: flex; justify-content: space-between;">
-                                <span style="color: #64748b;">📍 Koordinat:</span>
-                                <span style="font-family: monospace; font-size: 10px; color: #334155;">${Number(emp.lat).toFixed(6)}, ${Number(emp.lng).toFixed(6)}</span>
-                            </div>
-                            ${emp.location_name && emp.location_name !== '-' ? `
-                                <div style="margin-top: 4px; padding-top: 6px; border-top: 1px dashed #e2e8f0;">
-                                    <span style="color: #64748b; font-size: 10px; display: block;">Lokasi / Alamat:</span>
-                                    <span style="color: #1e293b; font-size: 11px;">${emp.location_name}</span>
-                                </div>
-                            ` : ''}
-                        </div>
+                        ` : ''}
                     </div>
-                    <div class="popup-actions">
-                        <a 
-                            href="${emp.google_maps_url}" 
-                            target="_blank" 
-                            style="flex: 1; padding: 7px 10px; background: #2563eb; color: #ffffff; text-align: center; border-radius: 8px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;"
-                        >
-                            Google Maps ↗
-                        </a>
-                        <a 
-                            href="${emp.tracking_url}" 
-                            target="_blank" 
-                            style="flex: 1; padding: 7px 10px; background: #f1f5f9; color: #334155; text-align: center; border-radius: 8px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 4px;"
-                        >
-                            Riwayat Rute ↗
-                        </a>
-                        <button 
-                            type="button"
-                            onclick="window.closeActivePopup(${emp.id})"
-                            style="padding: 7px 12px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; transition: background 0.15s ease;"
-                            onmouseover="this.style.background='#fecaca'"
-                            onmouseout="this.style.background='#fee2e2'"
-                            title="Tutup pop-up detail secara manual"
-                        >
-                            ✕ Tutup
-                        </button>
-                    </div>
+                </div>
+
+                <div class="panel-action-bar">
+                    <a 
+                        href="${emp.google_maps_url}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style="flex: 1; padding: 9px 12px; background: #2563eb; color: #ffffff; text-align: center; border-radius: 10px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; box-shadow: 0 2px 6px rgba(37,99,235,0.3); transition: background 0.15s ease;"
+                    >
+                        🗺️ Maps ↗
+                    </a>
+                    <a 
+                        href="${emp.tracking_url}" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        style="flex: 1; padding: 9px 12px; background: #f1f5f9; color: #334155; text-align: center; border-radius: 10px; font-size: 11px; font-weight: 700; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 5px; border: 1px solid #e2e8f0; transition: background 0.15s ease;"
+                        class="dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200"
+                    >
+                        🛣️ Rute ↗
+                    </a>
+                    <button 
+                        type="button"
+                        onclick="window.closeEmployeeDetail()"
+                        style="padding: 9px 14px; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 10px; font-size: 11px; font-weight: 800; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s ease;"
+                        onmouseover="this.style.background='#fecaca'"
+                        onmouseout="this.style.background='#fee2e2'"
+                        title="Tutup info detail karyawan secara manual"
+                    >
+                        ✕ Tutup
+                    </button>
                 </div>
             `;
         }
@@ -1512,19 +1691,41 @@
          * Mengarahkan kamera peta ke titik karyawan saat nama diklik di sidebar
          */
         window.focusEmployeeOnMap = function(empId) {
-            const marker = markersMap[empId];
-            if (marker && map) {
-                if (activeMarkerPopup && activeMarkerPopup !== marker) {
-                    activeMarkerPopup.closePopup();
-                }
-                activeMarkerPopup = marker;
-                map.flyTo(marker.getLatLng(), 17, { duration: 0.8 });
-                map.once('moveend', function () {
-                    marker.openPopup();
+            window.showEmployeeDetail(empId, true);
+        };
+
+        /**
+         * Fitur salin koordinat ke clipboard
+         */
+        window.copyCoordinates = function(lat, lng, btnEl) {
+            const coordText = `${lat}, ${lng}`;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(coordText).then(function() {
+                    if (btnEl) {
+                        const originalText = btnEl.innerHTML;
+                        btnEl.innerHTML = '✓ Tersalin';
+                        btnEl.style.background = '#dcfce7';
+                        btnEl.style.color = '#15803d';
+                        setTimeout(function() {
+                            btnEl.innerHTML = originalText;
+                            btnEl.style.background = '#e2e8f0';
+                            btnEl.style.color = '#334155';
+                        }, 2000);
+                    }
+                }).catch(function() {
+                    prompt('Salin koordinat:', coordText);
                 });
-                marker.openPopup();
+            } else {
+                prompt('Salin koordinat:', coordText);
             }
         };
+
+        // Tutup panel detail jika tombol ESC ditekan
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' || e.key === 'Esc') {
+                window.closeEmployeeDetail();
+            }
+        });
 
         // Initialize on all possible events
         document.addEventListener('DOMContentLoaded', window.initOrUpdateMap);
